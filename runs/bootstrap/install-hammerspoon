@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "📦 Installing Hammerspoon with Homebrew..."
+brew install --cask hammerspoon
+
+CONFIG_SRC="$HOME/last-dotfiles/configs/hammerspoon"
+CONFIG_DEST="$HOME/.hammerspoon"
+
+echo "🔁 Syncing Hammerspoon config from $CONFIG_SRC to $CONFIG_DEST"
+
+# Crea el destino si no existe
+mkdir -p "$CONFIG_DEST"
+
+# Copia todos los archivos, sobrescribiendo si es necesario
+cp -R "$CONFIG_SRC/"* "$CONFIG_DEST/"
+
+echo "✅ Hammerspoon installed and config copied to ~/.hammerspoon"
+
