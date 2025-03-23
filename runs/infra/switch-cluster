@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+CLUSTER_ARN=$1
+
+if [[ -z "$CLUSTER_ARN" ]]; then
+  echo "❌ You must provide a cluster ARN"
+  exit 1
+fi
+
+echo "🔁 Switching to cluster:"
+echo "$CLUSTER_ARN"
+kubectl config use-context "$CLUSTER_ARN"
