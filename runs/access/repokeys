@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+repokeys() {
+  # Check if the SSH agent is running
+  if ! pgrep -u "$USER" ssh-agent > /dev/null; then
+    echo "🔴 SSH agent is not running. Starting it..."
+    eval "$(ssh-agent -s)"
+  fi
+
+  echo "🔍 Searching for private keys in ~/.ssh..."
+
+  # Find and add all private keys (not ending in .pub and not named known_hosts*)
+  for key in "$HOME/.ssh/"*; do
+    filename=$(basename "$key")
+    if [[ -f "$key" && "$filename" != *.pub && "$filename" != known_hosts* ]]; then
+      if ssh-add "$key" &>/dev/null; then
+        echo "✅ Key added: $key"
+      else
+        echo "⚠️ Failed to add key: $key"
+      fi
+    fi
+  done
+}
+
+# Call the function
+repokeys
