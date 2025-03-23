@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+filter=""
+dry="0"
+
+cd "$script_dir" || exit 1
+
+# Buscar scripts ejecutables en la carpeta runs
+scripts=$(find ./runs -mindepth 1 -type f -perm +111)
+
+# Parsear argumentos
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry)
+      dry="1"
+      ;;
+    *)
+      filter="$1"
+      ;;
+  esac
+  shift
+done
+
+log() {
+  if [[ $dry == "1" ]]; then
+    echo "[DRY_RUN]: $*"
+  else
+    echo "$*"
+  fi
+}
+
+execute() {
+  log "execute: $*"
+  if [[ $dry == "1" ]]; then
+    return
+  fi
+  "$@"
+}
+
+log "run: filter=$filter"
+
+# Arrays para almacenar los scripts
+to_run=()
+filtered=()
+
+# Clasificar scripts
+for script in $scripts; do
+  if [[ -n "$filter" ]] && ! echo "$script" | grep -q "$filter"; then
+    filtered+=("$script")
+  else
+    to_run+=("$script")
+  fi
+done
+
+# Ejecutar los scripts que pasan el filtro
+for script in "${to_run[@]}"; do
+  log "running script: $script"
+  execute "./$script"
+done
+
+# Mostrar los scripts filtrados al final
+if [[ ${#filtered[@]} -gt 0 ]]; then
+  echo ""
+  echo "🔎 Scripts filtrados:"
+  for script in "${filtered[@]}"; do
+    echo "  ⏭️  $script"
+  done
+fi

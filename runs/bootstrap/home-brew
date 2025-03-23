@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# Detect operating system
+OS="$(uname -s)"
+
+# Check if Homebrew is already installed
+if command -v brew >/dev/null 2>&1; then
+    echo "✅ Homebrew is already installed."
+    exit 0
+fi
+
+echo "🔍 Installing Homebrew on $OS..."
+
+# Installation command for macOS and Linux
+if [[ "$OS" == "Darwin" || "$OS" == "Linux" ]]; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+else
+    echo "❌ Homebrew is not supported on this operating system ($OS)."
+    exit 1
+fi
+
+# Verify if the installation was successful
+if command -v brew >/dev/null 2>&1; then
+    echo "✅ Homebrew installed successfully."
+else
+    echo "❌ Failed to install Homebrew."
+    exit 1
+fi
+
