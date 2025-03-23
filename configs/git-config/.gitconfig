@@ -1,0 +1,16 @@
+[includeIf "gitdir:~/zooplus/"]
+  path = ~/.gitconfig_zooplus
+[includeIf "gitdir:~/kaizen/"]
+  path = ~/.gitconfig_kaizen
+[user]
+	name = Pedro Palazón Martínez de Alegría
+[core]
+	excludesfile = /Users/zp2391/.gitignore_global
+[difftool "sourcetree"]
+	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
+	path = 
+[mergetool "sourcetree"]
+	cmd = /Applications/Sourcetree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
+	trustExitCode = true
+[commit]
+	template = /Users/zp2391/.stCommitMsg
