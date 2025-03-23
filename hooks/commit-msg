@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# Called by "git commit" with one argument, the name of the file
+# that has the commit message.  The hook should exit with non-zero
+# status after issuing an appropriate message if it wants to stop the
+# commit.  The hook is allowed to edit the commit message file.
+#
+
+head -n 1 "" | grep --quiet --extended-regexp '^(MAJOR|MINOR|REVISION) \| .+'
+
+if [ 0 -ne 0 ]; then
+    echo "Error: commit message must match ZPL format: <MAJOR|MINOR|REVISION> | [<STORY_NUMBER>:] <COMMIT_MESSAGE>"
+    exit 1
+fi

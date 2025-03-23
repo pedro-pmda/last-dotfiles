@@ -1,0 +1,17 @@
+#!/bin/bash
+
+HOOKS_DIR="$HOME/last-dotfiles/hooks"
+GIT_HOOKS_DIR=".git/hooks"
+
+if [ ! -d "$GIT_HOOKS_DIR" ]; then
+  echo "❌ Este directorio no parece ser un repositorio Git"
+  exit 1
+fi
+
+for hook in "$HOOKS_DIR"/*; do
+  hook_name=$(basename "$hook")
+  cp "$hook" "$GIT_HOOKS_DIR/$hook_name"
+  chmod +x "$GIT_HOOKS_DIR/$hook_name"
+  echo "✅ Instalado hook: $hook_name"
+done
+

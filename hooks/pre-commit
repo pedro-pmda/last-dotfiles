@@ -1,0 +1,35 @@
+#!/bin/sh
+
+MODIFIED=$(git diff --name-only --cached ui/ | grep -E '\.(vue|ts)$' | grep -v '__tests__/')
+
+# Si no hay archivos modificados, salir del script
+if [ -z "$MODIFIED" ]; then
+    echo "✅ No modified files to check."
+    exit 0
+fi
+
+RES=0
+
+for file in $MODIFIED; do
+    echo "🔍 Checking $file ..."
+
+    (
+        cd "$(git rev-parse --show-toplevel)" || exit 1
+        cd ui
+        echo "🎨 Formatting $file with Prettier..."
+        npm run format "../$file"
+        
+        echo "🛠 Fixing lint issues in $file..."
+        npm run lint:fix "../$file" || RES=$?
+    )
+
+    if [ $RES -eq 0 ]; then        
+        git add "$file"
+        echo "✅ Added $file to commit after formatting & fixing"
+    else
+        echo "❌ Error in $file, commit rejected."
+        exit 1
+    fi
+done
+
+exit $RES

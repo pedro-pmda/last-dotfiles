@@ -1,0 +1,9 @@
+#!/bin/sh
+
+BRANCH_NAME=$(git symbolic-ref --short HEAD)
+JIRA_ID=$(echo "$BRANCH_NAME" | grep -oE 'ZOOB-[0-9]+')
+
+if [ -n "$JIRA_ID" ]; then
+  echo "REVISION | $JIRA_ID:" > "$1"
+fi
+
