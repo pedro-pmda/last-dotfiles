@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+# Instalar NVM usando Homebrew
+brew update
+brew install nvm
+
+# Crear directorio para NVM si no existe
+mkdir -p ~/.nvm
+
+# Añadir configuración de entorno a tu shell config (por ejemplo, .zshrc o .bashrc)
+CONFIG_FILE="${HOME}/.zshrc" # cambia si usas bash
+
+if ! grep -q 'export NVM_DIR' "$CONFIG_FILE"; then
+  {
+    echo 'export NVM_DIR="$HOME/.nvm"'
+    echo '[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"'
+    echo '[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"'
+  } >> "$CONFIG_FILE"
+fi
+
+# Cargar configuración en la sesión actual
+export NVM_DIR="$HOME/.nvm"
+source /opt/homebrew/opt/nvm/nvm.sh
+
+# Instalar la última versión de Node
+nvm install node
+nvm use node
+nvm alias default node
+
+echo "✅ NVM y la última versión de Node.js están instalados y configurados."
+
