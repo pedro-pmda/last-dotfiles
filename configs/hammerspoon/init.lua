@@ -22,15 +22,16 @@ local function calculatePosition(screen, width, height, horizontalPos, verticalP
 end
 
 local function moveWindow(appName)
-    hs.timer.doAfter(2, function()
-        local win = hs.window.find(appName)
+    local app = hs.application.get(appName)
+    if app then
+        local win = app:mainWindow()
         if win then
             local screen = hs.screen.primaryScreen():frame()
             local appConfig = nil
 
-            for _, config in ipairs(config.appLayout) do
-                if config.name == appName then
-                    appConfig = config
+            for _, cfg in ipairs(config.appLayout) do
+                if cfg.name == appName then
+                    appConfig = cfg
                     break
                 end
             end
@@ -47,7 +48,10 @@ local function moveWindow(appName)
             debugPrint(appName .. " window not found, retrying...")
             hs.timer.doAfter(2, function() moveWindow(appName) end)
         end
-    end)
+    else
+        debugPrint(appName .. " not running, retrying...")
+        hs.timer.doAfter(2, function() moveWindow(appName) end)
+    end
 end
 
 -- **Generic Browser Tab Handler**
@@ -99,18 +103,48 @@ local function openAllApps()
 end
 
 local function configureScreens()
-    local screen = hs.screen.primaryScreen():frame()
     for _, appConfig in ipairs(config.appLayout) do
-        local app = hs.application.get(appConfig.name)
-        if app then
-            moveWindow(appConfig.name)
+        for i = 0, 2 do -- Reintento 3 veces con separación de 2s
+            hs.timer.doAfter(i * 2, function()
+                moveWindow(appConfig.name)
+            end)
         end
+    end
+end
+
+-- 🆕 Detectar si usamos pantalla del portátil
+local function isUsingLaptopScreen()
+    local screen = hs.screen.primaryScreen()
+    if not screen then return false end
+
+    local screenName = screen:name() or ""
+    return screenName:lower():find("built%-in retina display") ~= nil
+end
+
+-- 🆕 Adaptar layout para pantalla del portátil con alerta visual
+local function adaptAppLayoutForCurrentScreen()
+    if isUsingLaptopScreen() then
+        local msg = "💻 Laptop screen detected → Fullscreen layout"
+        debugPrint(msg)
+        hs.alert.show(msg)
+
+        for _, appConfig in ipairs(config.appLayout) do
+            appConfig.position = "center"
+            appConfig.width = "3/3"
+            appConfig.height = "3/3"
+            appConfig.vertical = "center"
+        end
+    else
+        local msg = "🖥️ External screen detected → Multi-window layout"
+        debugPrint(msg)
+        hs.alert.show(msg)
     end
 end
 
 -- **Work Mode Execution**
 local function workMode()
     debugPrint("Starting work mode...")
+    adaptAppLayoutForCurrentScreen()
     openAllApps()
 
     hs.timer.doAfter(config.appLaunchDelay, function()
