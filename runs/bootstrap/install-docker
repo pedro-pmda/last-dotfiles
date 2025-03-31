@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -e
+
+echo "🐳 Instalando Docker Desktop en macOS..."
+
+# Verificar si Homebrew está instalado
+if ! command -v brew &> /dev/null; then
+  echo "❌ Homebrew no está instalado. Por favor instálalo primero desde https://brew.sh"
+  exit 1
+fi
+
+# Actualizar Homebrew
+echo "🔄 Actualizando Homebrew..."
+brew update
+
+# Instalar Docker Desktop
+echo "🍺 Instalando Docker Desktop..."
+brew install --cask docker
+
+echo "🚀 Abriendo Docker Desktop por primera vez (puede pedir permisos)..."
+open -a Docker
+
+echo "✅ Docker Desktop instalado. Espera unos segundos a que se inicie completamente."

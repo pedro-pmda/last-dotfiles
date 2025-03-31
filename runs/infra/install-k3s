@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -e
+
+echo "🔄 Actualizando Homebrew..."
+brew update
+
+echo "🍺 Instalando k3d (wrapper de K3s para Docker)..."
+brew install k3d
+
+echo "🐳 Verificando si Docker está corriendo..."
+if ! pgrep -f Docker.app > /dev/null; then
+  echo "⚠️  Docker no parece estar activo. Abre Docker Desktop y vuelve a intentarlo."
+  exit 1
+fi
+
+echo "🚀 Creando cluster K3s local usando k3d..."
+k3d cluster create peter-cluster --agents 2 --port 8080:80@loadbalancer
+
+echo "✅ K3s cluster creado. Puedes verificarlo con:"
+echo "   kubectl get nodes"
+
