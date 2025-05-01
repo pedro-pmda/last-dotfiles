@@ -12,7 +12,7 @@ return {
         { key = "F7",  modifiers = {},        action = "Obsidian" },
         { key = "F8",  modifiers = {},        action = "Mural" },
         { key = "F9",  modifiers = {},        action = "OpenLens" },
-        { key = "F10", modifiers = {},        action = "Warp" },
+        { key = "F10", modifiers = {},        action = "Ghostty" },
         { key = "F11", modifiers = {},        action = "Google Chrome Canary" },
         { key = "F12", modifiers = {},        action = nil },
         { key = "F12", modifiers = {"shift"}, action = "RELOAD_HAMMERSPOON" },
@@ -66,7 +66,7 @@ return {
     workAppLayout = {
         { name = "Chromium", position = "left", width = "1/3", vertical = "top", height = "3/3" },
         { name = "Slack", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Warp", position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Ghostty", position = "right", width = "2/4", vertical = "top", height = "3/3" },
         { name = "Visual Studio Code", position = "right", width = "2/3", vertical = "top", height = "3/3" },
         { name = "IntelliJ IDEA", position = "right", width = "2/3", vertical = "top", height = "3/3" },
         { name = "DBeaver", position = "right", width = "2/3", vertical = "top", height = "3/3" },
@@ -83,7 +83,7 @@ return {
         { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
         { name = "Obsidian", position = "right", width = "2/4", vertical = "top", height = "4/4" },
         { name = "Visual Studio Code", position = "right", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "Warp", position = "right", width = "2/4", vertical = "top", height = "4/4" }
+        { name = "Ghostty", position = "right", width = "2/4", vertical = "top", height = "4/4" }
     },
 
     foregroundApps = {
