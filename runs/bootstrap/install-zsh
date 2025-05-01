@@ -1,0 +1,118 @@
+#!/bin/bash
+
+set -e
+
+echo "🍺 [1/8] Verificando instalación de Homebrew..."
+if ! command -v brew &> /dev/null; then
+  echo "📦 Instalando Homebrew..."
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+else
+  echo "✅ Homebrew ya está instalado."
+fi
+
+echo "🔍 [2/8] Verificando instalación de Zsh..."
+if ! command -v zsh &> /dev/null; then
+  echo "📦 Instalando Zsh..."
+  brew install zsh
+else
+  echo "✅ Zsh ya está instalado."
+fi
+
+echo "🔧 [3/8] Instalando herramientas necesarias con Homebrew..."
+brew install fzf kubectx kubectx thefuck autojump
+$(brew --prefix)/opt/fzf/install
+
+echo "📦 [4/8] Instalando Antigen..."
+curl -L git.io/antigen > ~/.antigen.zsh
+
+echo "☸️ [5/8] Clonando kube-ps1..."
+git clone https://github.com/jonmosco/kube-ps1.git ~/.kube-ps1 || echo "-> kube-ps1 ya existe."
+
+echo "📝 [6/8] Generando nuevo ~/.zshrc..."
+
+cat > ~/.zshrc <<'EOF'
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# Powerlevel10k instant prompt
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# ─── Antigen Setup ──────────────────────────────────────────────
+source $HOME/.antigen.zsh
+antigen use oh-my-zsh
+
+# ─── Temas ──────────────────────────────────────────────────────
+antigen theme romkatv/powerlevel10k
+
+# ─── Plugins Zsh Core ───────────────────────────────────────────
+antigen bundle git
+antigen bundle docker
+antigen bundle node
+antigen bundle golang
+antigen bundle command-not-found
+antigen bundle zsh-users/zsh-autosuggestions
+antigen bundle zsh-users/zsh-completions
+antigen bundle zsh-users/zsh-history-substring-search
+antigen bundle rupa/z
+antigen bundle zsh-users/zsh-syntax-highlighting
+
+antigen apply
+
+
+# ─── kube-ps1 (Kubernetes context) ──────────────────────────────
+if [[ -f $HOME/.kube-ps1/kube-ps1.sh ]]; then
+  source $HOME/.kube-ps1/kube-ps1.sh
+  PROMPT='$(kube_ps1)'$PROMPT
+fi
+
+# ─── Historial Zsh ──────────────────────────────────────────────
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt INC_APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_FIND_NO_DUPS EXTENDED_HISTORY
+
+# ─── Alias útiles ───────────────────────────────────────────────
+alias k='kubectl'
+alias kgp='kubectl get pods'
+alias kaf='kubectl apply -f'
+alias kn='kubens'
+alias kc='kubectx'
+alias gst='git status'
+alias gl='git log --oneline --graph --decorate'
+alias cls='clear'
+alias tf='terraform'
+alias repokeys="$HOME/last-dotfiles/runs/access/./repokeys"
+alias run="$HOME/last-dotfiles/run"
+
+# ─── The Fuck ───────────────────────────────────────────────────
+eval "$(thefuck --alias)"
+
+# ─── Powerlevel10k config ───────────────────────────────────────
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+# ─── Configuración de fzf ───────────────────────────────────────
+[[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
+
+# ─── Language Environment ───────────────────────────────────────
+export LANG=en_US.UTF-8
+
+# ─── Path Setup ─────────────────────────────────────────────────
+export PATH=$HOME/bin:/usr/local/bl:wqn:$PATH
+
+export XDG_CONFIG_HOME="$HOME/.config"
+export EDITOR="nvim"
+
+EOF
+
+echo "📤 [7/8] Comprobando si Zsh es tu shell por defecto..."
+
+if [ "$SHELL" != "$(which zsh)" ]; then
+  echo "🔄 Cambiando tu shell por defecto a Zsh..."
+  chsh -s $(which zsh)
+else
+  echo "✅ Zsh ya es tu shell por defecto."
+fi
+
+echo "✅ [8/8] ¡Listo! Abre una nueva terminal o ejecuta: source ~/.zshrc"
+
