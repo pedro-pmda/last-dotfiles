@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+# Renombra ventana inicial a editor
+tmux rename-window -t 1 editor
+tmux send-keys -t editor 'nvim .' C-m
+
+# Ventana: frontend
+tmux neww -n frontend
+# Dividir horizontalmente (panel superior e inferior)
+tmux splitw -v -t frontend
+# Dividir la parte inferior en dos paneles horizontales (izq y der)
+tmux splitw -h -t frontend.1
+
+# Panel inferior izquierdo
+tmux send-keys -t frontend.2 'cd ui && rm -rf node_modules && npm install && npm run serve-dev' C-m
+
+# Opcional: limpiar otros paneles
+tmux send-keys -t frontend.0 'clear' C-m
+tmux send-keys -t frontend.1 'clear' C-m
+
+# Ventana: infra
+tmux neww -n infra
+tmux splitw -v -t infra
+tmux splitw -h -t infra.1
+
+tmux send-keys -t infra.2 'kdev && kgp -n zoobrain' C-m
+tmux send-keys -t infra.0 'clear' C-m
+tmux send-keys -t infra.1 'clear' C-m
+
+# Ventana: backend
+tmux neww -n backend
+tmux send-keys -t backend 'clear' C-m
+
+# Ventana: git
+tmux neww -n git
+tmux splitw -h -t git
+tmux send-keys -t git.0 'gl' C-m
+tmux send-keys -t git.1 'clear' C-m
+
+# Volver al editor
+tmux select-window -t editor
+

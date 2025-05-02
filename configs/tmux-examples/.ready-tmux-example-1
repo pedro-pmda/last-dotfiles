@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# Renombrar la primera ventana a 'editor' y abrir nvim
+tmux rename-window -t 1 editor
+tmux send-keys -t editor 'nvim .' C-m
+
+# Ventana: shell (2 paneles horizontales)
+tmux neww -n shell
+tmux splitw -h
+tmux send-keys -t shell.0 'clear' C-m
+tmux send-keys -t shell.1 'clear' C-m
+
+# Ventana: logs (2 paneles verticales)
+tmux neww -n logs
+tmux splitw -v
+tmux send-keys -t logs.0 'tail -f ./log.txt' C-m
+tmux send-keys -t logs.1 'clear' C-m
+
+# Ventana: git
+tmux neww -n git
+tmux send-keys -t git 'git status' C-m
+
+# Volver a la ventana principal
+tmux select-window -t editor
+

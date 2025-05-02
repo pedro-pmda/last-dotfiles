@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+caller_dir="$(pwd -P)"
+ready_tmux="$caller_dir/.ready-tmux"
+
+if [[ -x "$ready_tmux" ]]; then
+    "$ready_tmux"
+elif [[ -x "$HOME/.ready-tmux" ]]; then
+    "$HOME/.ready-tmux"
+fi
+

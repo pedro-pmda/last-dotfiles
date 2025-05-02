@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# Selecciona un subdirectorio dentro de ~/kaizen usando fzf
+selected=$(find ~/kaizen ~/zooplus -mindepth 1 -maxdepth 1 -type d | fzf)
+if [[ -z "$selected" ]]; then
+	exit 0
+fi
+
+# Normaliza el nombre de la sesión tmux
+selected_name=$(basename "$selected" | tr ":,/" "____")
+
+# Función para cambiar a la sesión tmux correspondiente
+switch_to() {
+    if [[ -z "$TMUX" ]]; then
+        tmux attach-session -t "$selected_name"
+    else
+        tmux switch-client -t "$selected_name"
+    fi
+}
+
+# Si la sesión ya existe, simplemente cambiar a ella
+if tmux has-session -t="$selected_name" 2>/dev/null; then
+    switch_to
+    exit 0
+fi
+
+# Crear una nueva sesión tmux y cambiar a ella
+tmux new-session -ds "$selected_name" -c "$selected"
+tmux send-keys -t "$selected_name" "ready-tmux" ^M
+switch_to
+
