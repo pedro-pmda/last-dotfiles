@@ -15,8 +15,9 @@ return {
         { key = "F10", modifiers = {},        action = "Ghostty" },
         { key = "F11", modifiers = {},        action = "Google Chrome Canary" },
         { key = "F12", modifiers = {},        action = nil },
-        { key = "F12", modifiers = {"shift"}, action = "RELOAD_HAMMERSPOON" },
-        { key = "F11", modifiers = {"shift"}, action = "KAIZEN_MODE" }
+        { key = "F6",  modifiers = {"shift"}, action = "EMOJI" },
+        { key = "F11", modifiers = {"shift"}, action = "KAIZEN_MODE" },
+        { key = "F12", modifiers = {"shift"}, action = "RELOAD_HAMMERSPOON" }
     },
 
     workChromeConfig = {

@@ -152,7 +152,6 @@ local function configureFunctionKeys()
         local key = mapping.key
         local modifiers = mapping.modifiers or {}
         local action = mapping.action
-
         if action == "RELOAD_HAMMERSPOON" then
             hs.hotkey.bind(modifiers, key, function()
                 debugPrint("Reloading config")
@@ -162,6 +161,11 @@ local function configureFunctionKeys()
             hs.hotkey.bind(modifiers, key, function()
                 debugPrint("Activating Kaizen Mode...")
                 kaizenMode()
+            end)
+        elseif action == "EMOJI" then
+            debugPrint("Activating Emoji Mode...")
+            hs.hotkey.bind(modifiers, key, function()
+                hs.eventtap.keyStroke({"ctrl", "cmd"}, "space")                
             end)
         elseif action then
             hs.hotkey.bind(modifiers, key, function()
