@@ -28,7 +28,7 @@ return {
             "https://dna-jenkins.cicdk8sp.int.aws.zooplus.io/job/Zoobrain/job/DZB/",
             "https://zpl.awsapps.com/start/#/?tab=accounts",
             "https://sonarqube.private.zooplus.net/dashboard?id=dzb%3Azoobrain%3Aui",
-            "https://zoobrain.dnap.int.zooplus.io/ui/datamarts"
+            "https://zoobrain.private.zooplus.net"
         }
     },
 
@@ -63,17 +63,17 @@ return {
             "https://developer.mozilla.org/en-US/"
         }
     },
-
+        
     workAppLayout = {
-        { name = "Chromium", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Slack", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Ghostty", position = "right", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Visual Studio Code", position = "right", width = "2/3", vertical = "top", height = "3/3" },
         { name = "IntelliJ IDEA", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "DBeaver", position = "right", width = "2/3", vertical = "top", height = "3/3" },
+        { name = "DBeaver", position = "right", width = "2/3", vertical = "top", height = "3/3" },       
+        { name = "Slack", position = "left", width = "1/3", vertical = "top", height = "3/3" },
+        { name = "Ghostty", position = "right", width = "3/4", vertical = "top", height = "3/3" },
+        { name = "Visual Studio Code", position = "right", width = "2/3", vertical = "top", height = "3/3" },
         { name = "Obsidian", position = "left", width = "1/3", vertical = "top", height = "3/3" },
         { name = "Mural", position = "right", width = "2/3", vertical = "top", height = "3/3" },
         { name = "OpenLens", position = "right", width = "2/3", vertical = "top", height = "3/3" },
+        { name = "Chromium", position = "left", width = "1/3", vertical = "top", height = "3/3" },
         { name = "Google Chrome", position = "right", width = "2/3", vertical = "top", height = "3/3" },
         { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" }
     },

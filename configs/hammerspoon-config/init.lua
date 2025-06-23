@@ -48,7 +48,7 @@ end
 
 -- Browser opener
 local function openBrowserWithUrls(appName, urls)
-    local script = "tell application \"" .. appName .. "\"\nactivate\ndelay 1\ntell window 1\n"
+    local script = "tell application \"" .. appName .. "\"\nactivate\ndelay 3\ntell window 1\n"
     for _, url in ipairs(urls) do
         script = script .. "make new tab with properties {URL: \"" .. url .. "\"}\n"
     end
@@ -61,7 +61,7 @@ local function handleChromium() openBrowserWithUrls("Chromium", config.workChrom
 local function handleKaizenChrome() openBrowserWithUrls("Google Chrome", config.kaizenChromeConfig.urls) end
 local function handleKaizenChromium() openBrowserWithUrls("Chromium", config.kaizenChromiumConfig.urls) end
 
--- Pantalla portátil
+-- Laptop screen detection
 local function isUsingLaptopScreen()
     local screen = hs.screen.primaryScreen()
     if not screen then return false end
@@ -83,7 +83,7 @@ local function adaptLayoutForCurrentScreen(layoutTable)
     end
 end
 
--- Función para cerrar todas las apps excepto Hammerspoon
+-- Close all apps except Hammerspoon
 local function closeAllWindows()
     for _, app in ipairs(hs.application.runningApplications()) do
         if app:kind() == 1 and app:name() ~= "Hammerspoon" then
@@ -92,7 +92,7 @@ local function closeAllWindows()
     end
 end
 
--- Funciones principales
+-- Launch and arrange apps
 local function openAndArrange(layoutTable)
     for _, appCfg in ipairs(layoutTable) do
         hs.application.launchOrFocus(appCfg.name)
@@ -109,6 +109,7 @@ local function openAndArrange(layoutTable)
     end)
 end
 
+-- Bring apps to front
 local function bringAppsToFront(appNames)
     for _, name in ipairs(appNames) do
         local app = hs.application.get(name)
@@ -118,35 +119,91 @@ local function bringAppsToFront(appNames)
     end
 end
 
+-- Work mode
 local function workMode()
-    debugPrint("🧑🏾‍💻 Entering Work mode ...")
+    debugPrint("🧑🏾‍💻 Entering Work Mode...")
+    hs.alert.show("🧑🏾‍💻 Entering Work Mode...")
+
     adaptLayoutForCurrentScreen(config.workAppLayout)
     closeAllWindows()
-    openAndArrange(config.workAppLayout)
-    hs.timer.doAfter(config.appLaunchDelay + 1, function()
-        handleChrome()
-        handleChromium()
-        bringAppsToFront(config.foregroundApps.work)
+
+    hs.timer.doAfter(2, function()
+        debugPrint("🚀 Launching apps (openAndArrange) [Work]")
+        local ok, err = pcall(function()
+            openAndArrange(config.workAppLayout)
+        end)
+        if not ok then
+            hs.alert.show("❌ Error in openAndArrange (Work): " .. tostring(err))
+            debugPrint("❌ Error in openAndArrange (Work): " .. tostring(err))
+        else
+            hs.alert.show("✅ Work apps launched")
+            debugPrint("✅ Work apps launched")
+        end
+    end)
+
+    hs.timer.doAfter(config.appLaunchDelay + 6, function()
+        hs.alert.show("🌐 Opening Chrome and Chromium...")
+        debugPrint("🌐 Opening Chrome and Chromium...")
+
+        local ok1, err1 = pcall(handleChrome)
+        if not ok1 then debugPrint("❌ Error in handleChrome: " .. tostring(err1)) end
+
+        local ok2, err2 = pcall(handleChromium)
+        if not ok2 then debugPrint("❌ Error in handleChromium: " .. tostring(err2)) end
+
+        local ok3, err3 = pcall(function()
+            bringAppsToFront(config.foregroundApps.work)
+        end)
+        if not ok3 then debugPrint("❌ Error bringing apps to front (Work): " .. tostring(err3)) end
+
+        hs.alert.show("🧑🏾‍💻 Work Mode ready")
+        debugPrint("🧑🏾‍💻 Work Mode ready")
     end)
 end
 
+-- Kaizen mode
 local function kaizenMode()
-    debugPrint("Starting Kaizen Mode...")
+    debugPrint("⛩️ Starting Kaizen Mode...")
     hs.alert.show("⛩️ Entering Kaizen Mode...")
+
     adaptLayoutForCurrentScreen(config.kaizenAppLayout)
     closeAllWindows()
-    hs.timer.doAfter(2, function()
-        openAndArrange(config.kaizenAppLayout)
-        hs.timer.doAfter(config.appLaunchDelay + 1, function()
-            handleKaizenChrome()
-            handleKaizenChromium()
-            bringAppsToFront(config.foregroundApps.kaizen)
 
+    hs.timer.doAfter(2, function()
+        debugPrint("🚀 Launching apps (openAndArrange) [Kaizen]")
+        local ok, err = pcall(function()
+            openAndArrange(config.kaizenAppLayout)
         end)
+        if not ok then
+            hs.alert.show("❌ Error in openAndArrange (Kaizen): " .. tostring(err))
+            debugPrint("❌ Error in openAndArrange (Kaizen): " .. tostring(err))
+        else
+            hs.alert.show("✅ Kaizen apps launched")
+            debugPrint("✅ Kaizen apps launched")
+        end
+    end)
+
+    hs.timer.doAfter(config.appLaunchDelay + 6, function()
+        hs.alert.show("🌐 Opening Kaizen Chrome and Chromium...")
+        debugPrint("🌐 Opening Kaizen Chrome and Chromium...")
+
+        local ok1, err1 = pcall(handleKaizenChrome)
+        if not ok1 then debugPrint("❌ Error in handleKaizenChrome: " .. tostring(err1)) end
+
+        local ok2, err2 = pcall(handleKaizenChromium)
+        if not ok2 then debugPrint("❌ Error in handleKaizenChromium: " .. tostring(err2)) end
+
+        local ok3, err3 = pcall(function()
+            bringAppsToFront(config.foregroundApps.kaizen)
+        end)
+        if not ok3 then debugPrint("❌ Error bringing apps to front (Kaizen): " .. tostring(err3)) end
+
+        hs.alert.show("⛩️ Kaizen Mode ready")
+        debugPrint("⛩️ Kaizen Mode ready")
     end)
 end
 
--- Teclas de función
+-- Function keys
 local function configureFunctionKeys()
     for _, mapping in ipairs(config.functionKeys) do
         local key = mapping.key
@@ -175,6 +232,6 @@ local function configureFunctionKeys()
     end
 end
 
--- Ejecutar
+-- Start
 configureFunctionKeys()
 workMode()
