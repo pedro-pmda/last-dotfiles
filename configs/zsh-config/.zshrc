@@ -59,6 +59,7 @@ alias repokeys="$HOME/last-dotfiles/runs/access/./repokeys"
 alias run="$HOME/last-dotfiles/run"
 alias session="$HOME/last-dotfiles/runs/utils/tmux-sessionizer"
 alias ready-tmux="$HOME/last-dotfiles/runs/utils/ready-tmux"
+alias dpsp='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"'
 
 # ─── The Fuck ───────────────────────────────────────────────────
 eval "$(thefuck --alias)"
