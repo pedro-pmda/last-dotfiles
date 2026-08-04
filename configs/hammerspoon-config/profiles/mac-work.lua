@@ -2,6 +2,10 @@ return {
     appLaunchDelay = 5,
     debugMode = false,
 
+    -- Por debajo de este ancho en la pantalla principal no se reparten ventanas:
+    -- todo va a pantalla completa. El ultrawide (3440) tilea, la interna (1512) no.
+    minWidthForTiling = 2000,
+
     -- Una tecla = un dominio. Sin modificador la app principal, con shift la variante.
     -- Bloques: F1-F4 comunicar · F5-F8 construir · F9-F12 personal/meta
     functionKeys = {
@@ -74,39 +78,55 @@ return {
         }
     },
         
+    -- Tres columnas en el ultrawide: 1/4 comunicar · 2/4 trabajar · 1/4 IA.
+    -- `center` es simétrico, así que las dos columnas de los lados tienen que medir
+    -- lo mismo: 1/4 + 2/4 + 1/4 es el único reparto de tres que sale con estas fracciones.
+    -- La columna derecha es exclusiva de los chats de IA: nada más va ahí, o dejan de
+    -- estar visibles en cuanto pulsas otra tecla.
     workAppLayout = {
-        { name = "IntelliJ IDEA", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "DBeaver", position = "right", width = "2/3", vertical = "top", height = "3/3" },       
-        { name = "Slack", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Ghostty", position = "right", width = "3/4", vertical = "top", height = "3/3" },
-        { name = "Visual Studio Code", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Obsidian", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "OpenLens", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Chromium", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Google Chrome", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "Microsoft Outlook", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Microsoft Teams", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Microsoft 365 Copilot", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Claude", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "WebPomodoro", position = "right", width = "2/4", vertical = "top", height = "4/4" }
+        -- Comunicar: se tapan entre sí a propósito, son vistazos
+        { name = "Slack", position = "left", width = "1/4", vertical = "top", height = "3/3" },
+        { name = "Microsoft Teams", position = "left", width = "1/4", vertical = "top", height = "3/3" },
+        { name = "Microsoft Outlook", position = "left", width = "1/4", vertical = "top", height = "3/3" },
+        { name = "Finder", position = "left", width = "1/4", vertical = "top", height = "3/3" },
+
+        -- Trabajar: la superficie que más píxeles pide
+        { name = "IntelliJ IDEA", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Visual Studio Code", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Ghostty", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Google Chrome", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "DBeaver", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "OpenLens", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+
+        -- IA: columna reservada, siempre presente
+        { name = "Claude", position = "right", width = "1/4", vertical = "top", height = "3/3" },
+        { name = "Microsoft 365 Copilot", position = "right", width = "1/4", vertical = "top", height = "3/3" },
+        { name = "Chromium", position = "right", width = "1/4", vertical = "top", height = "3/3" },
+
+        -- Pantalla pequeña: las dos a pantalla completa, alternas con F9 / Shift+F9
+        { name = "Obsidian", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
+        { name = "WebPomodoro", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
+
+        -- Escape deliberado: pantalla completa para demos y pruebas
+        { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" }
     },
 
     -- Apps que no se lanzan en ningún modo pero sí tienen sitio cuando las abres a mano
     onDemandAppLayout = {
-        { name = "Kiro", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Cyberduck", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Docker", position = "right", width = "2/3", vertical = "top", height = "3/3" }
+        { name = "Kiro", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Docker", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Cyberduck", position = "left", width = "1/4", vertical = "top", height = "3/3" }
     },
 
+    -- Misma geometría, otros inquilinos: en kaizen la IA es Chromium (Gemini y Claude web)
     kaizenAppLayout = {
-        { name = "Chromium", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Google Chrome", position = "left", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "Obsidian", position = "right", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "Visual Studio Code", position = "right", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "Ghostty", position = "right", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "WebPomodoro", position = "right", width = "2/4", vertical = "top", height = "4/4" }
+        { name = "Google Chrome", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Visual Studio Code", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Ghostty", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Chromium", position = "right", width = "1/4", vertical = "top", height = "3/3" },
+        { name = "Obsidian", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
+        { name = "WebPomodoro", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
+        { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" }
     },
 
     foregroundApps = {

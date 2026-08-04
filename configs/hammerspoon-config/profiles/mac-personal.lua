@@ -2,8 +2,12 @@ return {
     appLaunchDelay = 5,
     debugMode = false,
 
+    -- Por debajo de este ancho en la pantalla principal todo va a pantalla completa
+    minWidthForTiling = 2000,
+
     functionKeys = {
         { key = "F1",  modifiers = {},        action = "Google Chrome" },
+        { key = "F1",  modifiers = {"shift"}, action = "Google Chrome Canary" },
         { key = "F2",  modifiers = {},        action = "Visual Studio Code" },
         { key = "F3",  modifiers = {},        action = "IntelliJ IDEA" },
         { key = "F4",  modifiers = {},        action = "Microsoft Teams" },
@@ -13,8 +17,8 @@ return {
         { key = "F8",  modifiers = {},        action = "Mural" },
         { key = "F9",  modifiers = {},        action = "OpenLens" },
         { key = "F10", modifiers = {},        action = "Ghostty" },
-        { key = "F11", modifiers = {},        action = "Google Chrome Canary" },
-        { key = "F12", modifiers = {},        action = nil },
+        { key = "F11", modifiers = {},        action = "WORK_MODE" },
+        { key = "F12", modifiers = {},        action = "RESET_LAYOUT" },
         { key = "F6",  modifiers = {"shift"}, action = "EMOJI" },
         { key = "F11", modifiers = {"shift"}, action = "KAIZEN_MODE" },
         { key = "F12", modifiers = {"shift"}, action = "RELOAD_HAMMERSPOON" }

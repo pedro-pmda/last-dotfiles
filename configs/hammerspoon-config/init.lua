@@ -36,12 +36,32 @@ local function calculatePosition(screen, width, height, horizontalPos, verticalP
     return xPositions[horizontalPos] or screen.x, yPositions[verticalPos] or screen.y
 end
 
+-- Pantalla destino de una entrada del layout: "primary" (default) o "secondary".
+-- Si no hay segunda pantalla cae a la primaria, para que al desconectar el monitor
+-- la app no acabe en las coordenadas de una pantalla que ya no existe.
+local function resolveScreen(which)
+    local primary = hs.screen.primaryScreen()
+    if which == "secondary" then
+        for _, s in ipairs(hs.screen.allScreens()) do
+            if s:id() ~= primary:id() then return s end
+        end
+    end
+    return primary
+end
+
+-- ¿Hay ancho de sobra para repartir ventanas? Se decide por geometría y no por el
+-- nombre de la pantalla, que varía entre modelos ("Built-in Liquid Retina XDR Display").
+-- Pantalla estrecha = estás solo con el portátil = todo a pantalla completa.
+local function shouldTile()
+    local screen = hs.screen.primaryScreen()
+    return screen ~= nil and screen:frame().w >= (config.minWidthForTiling or 2000)
+end
+
 local function moveWindow(appName, layoutTable)
     local app = hs.application.get(appName)
     if app then
         local win = app:mainWindow()
         if win then
-            local screen = hs.screen.primaryScreen():frame()
             local appConfig = nil
 
             for _, cfg in ipairs(layoutTable) do
@@ -52,9 +72,18 @@ local function moveWindow(appName, layoutTable)
             end
 
             if appConfig then
-                local width = getSizeFraction(screen.w, appConfig.width)
-                local height = getSizeFraction(screen.h, appConfig.height)
-                local x, y = calculatePosition(screen, width, height, appConfig.position, appConfig.vertical)
+                local pos, vert = appConfig.position, appConfig.vertical
+                local w, h = appConfig.width, appConfig.height
+                -- Sin sitio para repartir: pantalla completa. En locales, nunca
+                -- escribiendo en la tabla del profile (se perdería al reconectar).
+                if not shouldTile() then
+                    pos, vert, w, h = "center", "center", "3/3", "3/3"
+                end
+
+                local screen = resolveScreen(appConfig.screen):frame()
+                local width = getSizeFraction(screen.w, w)
+                local height = getSizeFraction(screen.h, h)
+                local x, y = calculatePosition(screen, width, height, pos, vert)
                 win:setFrame(hs.geometry.rect(x, y, width, height))
             end
         end
@@ -109,25 +138,13 @@ local function handleChromium() openBrowserWithUrls("Chromium", config.workChrom
 local function handleKaizenChrome() openBrowserWithUrls("Google Chrome", config.kaizenChromeConfig.urls) end
 local function handleKaizenChromium() openBrowserWithUrls("Chromium", config.kaizenChromiumConfig.urls) end
 
--- Laptop screen detection
-local function isUsingLaptopScreen()
-    local screen = hs.screen.primaryScreen()
-    if not screen then return false end
-    local screenName = screen:name() or ""
-    return screenName:lower():find("built%-in retina display") ~= nil
-end
-
-local function adaptLayoutForCurrentScreen(layoutTable)
-    if isUsingLaptopScreen() then
-        for _, appCfg in ipairs(layoutTable) do
-            appCfg.position = "center"
-            appCfg.width = "3/3"
-            appCfg.height = "3/3"
-            appCfg.vertical = "center"
-        end
-        hs.alert.show("💻 Laptop screen → fullscreen layout")
-    else
+-- Solo avisa del modo en el que se va a colocar. Quien decide es shouldTile(),
+-- en cada moveWindow, para que desconectar el monitor no exija recargar.
+local function announceScreenMode()
+    if shouldTile() then
         hs.alert.show("🖥️ External screen → multi-window layout")
+    else
+        hs.alert.show("💻 Laptop screen → fullscreen layout")
     end
 end
 
@@ -173,7 +190,7 @@ local function workMode()
     hs.alert.show("🧑🏾‍💻 Entering Work Mode...")
 
     currentLayout = config.workAppLayout
-    adaptLayoutForCurrentScreen(config.workAppLayout)
+    announceScreenMode()
     closeAllWindows()
 
     hs.timer.doAfter(2, function()
@@ -216,7 +233,7 @@ local function kaizenMode()
     hs.alert.show("⛩️ Entering Kaizen Mode...")
 
     currentLayout = config.kaizenAppLayout
-    adaptLayoutForCurrentScreen(config.kaizenAppLayout)
+    announceScreenMode()
     closeAllWindows()
 
     hs.timer.doAfter(2, function()
