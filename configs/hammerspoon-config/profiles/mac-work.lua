@@ -14,6 +14,8 @@ return {
         { key = "F1",  modifiers = {"shift"}, action = "Google Chrome Canary" },
         { key = "F2",  modifiers = {},        action = "Claude" },
         { key = "F2",  modifiers = {"shift"}, action = "Chromium" },
+        -- F2 es la tecla de la IA y ya no caben más variantes con shift
+        { key = "F2",  modifiers = {"alt"},   action = "LM Studio" },
         { key = "F3",  modifiers = {},        action = "Slack" },
         { key = "F3",  modifiers = {"shift"}, action = "Microsoft Teams" },
         { key = "F4",  modifiers = {},        action = "Microsoft 365 Copilot" },
@@ -104,9 +106,11 @@ return {
         { name = "Microsoft 365 Copilot", position = "right", width = "1/4", vertical = "top", height = "3/3" },
         { name = "Chromium", position = "right", width = "1/4", vertical = "top", height = "3/3" },
 
-        -- Pantalla pequeña: las dos a pantalla completa, alternas con F9 / Shift+F9
+        -- Pantalla pequeña: las tres a pantalla completa, se tapan entre sí y
+        -- alternas con F9 / Shift+F9 / Alt+F2
         { name = "Obsidian", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
         { name = "WebPomodoro", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
+        { name = "LM Studio", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
 
         -- Escape deliberado: pantalla completa para demos y pruebas
         { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" }
@@ -127,6 +131,7 @@ return {
         { name = "Chromium", position = "right", width = "1/4", vertical = "top", height = "3/3" },
         { name = "Obsidian", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
         { name = "WebPomodoro", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
+        { name = "LM Studio", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
         { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" }
     },
 
