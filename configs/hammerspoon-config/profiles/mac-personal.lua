@@ -91,6 +91,12 @@ return {
     foregroundApps = {
         work = { "Obsidian", "IntelliJ IDEA" },
         kaizen = { "Google Chrome", "Obsidian" }
+    },
+
+    -- Apps que corren con un nombre distinto al de su .app: sin su bundle ID
+    -- hs.application.get() no las encuentra y nunca se colocan.
+    appIds = {
+        ["Visual Studio Code"] = "com.microsoft.VSCode"
     }
-    
+
 }

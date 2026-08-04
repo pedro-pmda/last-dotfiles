@@ -5,6 +5,14 @@ local function debugPrint(message)
     if config.debugMode then hs.alert.show(message) end
 end
 
+-- Localiza una app ya abierta. El nombre con el que se lanza (el del .app) no siempre
+-- es el que macOS devuelve al buscarla: "Visual Studio Code.app" corre como "Code".
+-- Para esos casos el profile declara su bundle ID en `appIds`.
+local function getApp(appName)
+    local id = config.appIds and config.appIds[appName]
+    return (id and hs.application.get(id)) or hs.application.get(appName)
+end
+
 -- Launch/focus an app, using its configured path if it lives outside /Applications
 local function launchOrFocusApp(appName)
     local path = config.appPaths and config.appPaths[appName]
@@ -58,7 +66,7 @@ local function shouldTile()
 end
 
 local function moveWindow(appName, layoutTable)
-    local app = hs.application.get(appName)
+    local app = getApp(appName)
     if app then
         local win = app:mainWindow()
         if win then
@@ -113,7 +121,7 @@ local function resetLayout()
     local moved = 0
     for _, layoutTable in ipairs({ currentLayout, config.onDemandAppLayout or {} }) do
         for _, cfg in ipairs(layoutTable) do
-            local app = hs.application.get(cfg.name)
+            local app = getApp(cfg.name)
             if app and app:mainWindow() then
                 moveWindow(cfg.name, layoutTable)
                 moved = moved + 1
@@ -177,7 +185,7 @@ end
 -- Bring apps to front
 local function bringAppsToFront(appNames)
     for _, name in ipairs(appNames) do
-        local app = hs.application.get(name)
+        local app = getApp(name)
         if app and app:mainWindow() then
             app:activate()
         end
@@ -305,7 +313,7 @@ local function configureFunctionKeys()
             hs.hotkey.bind(modifiers, key, function()
                 -- Solo colocar la ventana al abrir la app por primera vez. Si ya estaba
                 -- corriendo la tecla es puro focus: el tamaño que le hayas dado se respeta.
-                local wasRunning = hs.application.get(action) ~= nil
+                local wasRunning = getApp(action) ~= nil
                 launchOrFocusApp(action)
                 if not wasRunning then
                     hs.timer.doAfter(config.appLaunchDelay, function() positionApp(action) end)
