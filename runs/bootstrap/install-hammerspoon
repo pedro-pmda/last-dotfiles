@@ -2,19 +2,81 @@
 
 set -euo pipefail
 
-echo "📦 Installing Hammerspoon with Homebrew..."
-brew install --cask hammerspoon
-
-CONFIG_SRC="$HOME/last-dotfiles/configs/hammerspoon"
+# La raíz del repo se deduce del propio script: el symlink debe apuntar al clon real,
+# viva donde viva, no a un ~/last-dotfiles asumido.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CONFIG_SRC="$REPO_ROOT/configs/hammerspoon-config"
+PROFILES_DIR="$CONFIG_SRC/profiles"
 CONFIG_DEST="$HOME/.hammerspoon"
 
-echo "🔁 Syncing Hammerspoon config from $CONFIG_SRC to $CONFIG_DEST"
+# --- 1. Instalar Hammerspoon solo si falta -----------------------------------
+if [[ -d "/Applications/Hammerspoon.app" ]]; then
+  echo "✅ Hammerspoon ya está instalado"
+else
+  echo "📦 Installing Hammerspoon with Homebrew..."
+  brew install --cask hammerspoon
+fi
 
-# Crea el destino si no existe
+# --- 2. Descubrir los perfiles disponibles -----------------------------------
+profiles=()
+for f in "$PROFILES_DIR"/*.lua; do
+  [[ -e "$f" ]] || continue
+  profiles+=("$(basename "$f" .lua)")
+done
+
+if [[ ${#profiles[@]} -eq 0 ]]; then
+  echo "❌ No hay ningún perfil en $PROFILES_DIR"
+  exit 1
+fi
+
+# Perfil enlazado ahora mismo, si es que hay symlink
+current=""
+if [[ -L "$CONFIG_DEST/app_config.lua" ]]; then
+  current=$(basename "$(readlink "$CONFIG_DEST/app_config.lua")" .lua)
+fi
+
+# --- 3. Elegir perfil --------------------------------------------------------
+if [[ -t 0 ]]; then
+  [[ -n "$current" ]] && echo "🔗 Perfil actual: $current"
+  echo "🖥  ¿Qué perfil de Hammerspoon quieres instalar?"
+  select choice in "${profiles[@]}"; do
+    if [[ -n "${choice:-}" ]]; then
+      break
+    fi
+    echo "   Elige un número de la lista."
+  done
+  # Ctrl+D corta el select sin asignar nada
+  profile="${choice:-}"
+  if [[ -z "$profile" ]]; then
+    echo "❌ No se eligió ningún perfil, no se toca nada"
+    exit 1
+  fi
+elif [[ -n "$current" ]]; then
+  # Sin TTY (p.ej. dentro de un ./run desatendido): mantener lo que ya hay
+  echo "🔗 Sin terminal interactiva, manteniendo el perfil '$current'"
+  profile="$current"
+else
+  echo "⏭️  Sin terminal interactiva y sin perfil previo. Ejecútalo a mano:"
+  echo "    ./run hammerspoon"
+  exit 0
+fi
+
+# --- 4. Enlazar, respaldando lo que hubiera ----------------------------------
 mkdir -p "$CONFIG_DEST"
+stamp=$(date +%Y%m%d-%H%M%S)
 
-# Copia todos los archivos, sobrescribiendo si es necesario
-cp -R "$CONFIG_SRC/"* "$CONFIG_DEST/"
+link() { # link <origen> <destino>
+  local src="$1" dest="$2"
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    echo "⚠️  $dest existe y no es un symlink → backup en $dest.backup-$stamp"
+    mv "$dest" "$dest.backup-$stamp"
+  fi
+  ln -sfn "$src" "$dest"
+  echo "🔗 $dest -> $src"
+}
 
-echo "✅ Hammerspoon installed and config copied to ~/.hammerspoon"
+link "$CONFIG_SRC/init.lua"       "$CONFIG_DEST/init.lua"
+link "$PROFILES_DIR/$profile.lua" "$CONFIG_DEST/app_config.lua"
 
+echo "✅ Hammerspoon configurado con el perfil '$profile'"
+echo "♻️  Pulsa Shift+F12 para recargar la config"

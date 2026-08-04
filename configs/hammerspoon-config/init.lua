@@ -5,6 +5,16 @@ local function debugPrint(message)
     if config.debugMode then hs.alert.show(message) end
 end
 
+-- Launch/focus an app, using its configured path if it lives outside /Applications
+local function launchOrFocusApp(appName)
+    local path = config.appPaths and config.appPaths[appName]
+    if path then
+        hs.application.open(path)
+    else
+        hs.application.launchOrFocus(appName)
+    end
+end
+
 -- Helpers
 local function getSizeFraction(screenSize, fraction)
     local fractions = {
@@ -95,7 +105,7 @@ end
 -- Launch and arrange apps
 local function openAndArrange(layoutTable)
     for _, appCfg in ipairs(layoutTable) do
-        hs.application.launchOrFocus(appCfg.name)
+        launchOrFocusApp(appCfg.name)
     end
 
     hs.timer.doAfter(config.appLaunchDelay, function()
@@ -226,7 +236,7 @@ local function configureFunctionKeys()
             end)
         elseif action then
             hs.hotkey.bind(modifiers, key, function()
-                hs.application.launchOrFocus(action)
+                launchOrFocusApp(action)
             end)
         end
     end
