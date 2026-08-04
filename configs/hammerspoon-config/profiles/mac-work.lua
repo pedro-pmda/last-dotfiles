@@ -97,6 +97,7 @@ return {
         { name = "Google Chrome", position = "center", width = "2/4", vertical = "top", height = "3/3" },
         { name = "DBeaver", position = "center", width = "2/4", vertical = "top", height = "3/3" },
         { name = "OpenLens", position = "center", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Kiro", position = "center", width = "2/4", vertical = "top", height = "3/3" },
 
         -- IA: columna reservada, siempre presente
         { name = "Claude", position = "right", width = "1/4", vertical = "top", height = "3/3" },
@@ -111,9 +112,9 @@ return {
         { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" }
     },
 
-    -- Apps que no se lanzan en ningún modo pero sí tienen sitio cuando las abres a mano
+    -- Las dos únicas que no arrancan con el layout: pesan y no se usan a diario.
+    -- Tienen sitio reservado para cuando las abres a mano con Shift+F7 / Shift+F8.
     onDemandAppLayout = {
-        { name = "Kiro", position = "center", width = "2/4", vertical = "top", height = "3/3" },
         { name = "Docker", position = "center", width = "2/4", vertical = "top", height = "3/3" },
         { name = "Cyberduck", position = "left", width = "1/4", vertical = "top", height = "3/3" }
     },
