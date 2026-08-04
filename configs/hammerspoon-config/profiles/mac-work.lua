@@ -24,10 +24,10 @@ return {
         { key = "F5",  modifiers = {"shift"}, action = "DBeaver" },
         { key = "F6",  modifiers = {},        action = "Visual Studio Code" },
         { key = "F6",  modifiers = {"shift"}, action = "Kiro" },
-        { key = "F7",  modifiers = {},        action = "Ghostty" },
-        { key = "F7",  modifiers = {"shift"}, action = "Cyberduck" },
-        { key = "F8",  modifiers = {},        action = "OpenLens" },
-        { key = "F8",  modifiers = {"shift"}, action = "Docker" },
+        { key = "F7",  modifiers = {},        action = "OpenLens" },
+        { key = "F7",  modifiers = {"shift"}, action = "Docker" },
+        { key = "F8",  modifiers = {},        action = "Ghostty" },
+        { key = "F8",  modifiers = {"shift"}, action = "Cyberduck" },
 
         -- Personal y meta
         { key = "F9",  modifiers = {},        action = "Obsidian" },
