@@ -9,6 +9,11 @@ end
 local function launchOrFocusApp(appName)
     local path = config.appPaths and config.appPaths[appName]
     if path then
+        -- Rutas externas (discos montados) pueden no estar disponibles: avisar en vez de fallar en silencio
+        if not hs.fs.attributes(path) then
+            hs.alert.show("❌ " .. appName .. " no encontrada en " .. path)
+            return
+        end
         hs.application.open(path)
     else
         hs.application.launchOrFocus(appName)
@@ -54,6 +59,39 @@ local function moveWindow(appName, layoutTable)
             end
         end
     end
+end
+
+-- Layout del modo activo. Lo actualizan workMode() y kaizenMode() para que
+-- recolocar devuelva las ventanas al sitio del modo en el que estás.
+local currentLayout = config.workAppLayout
+
+-- Coloca una app al pulsar su tecla, buscando su sitio en el layout del modo activo
+-- y, si no está ahí, en el de apps que solo se abren a mano.
+local function positionApp(appName)
+    for _, layoutTable in ipairs({ currentLayout, config.onDemandAppLayout or {} }) do
+        for _, cfg in ipairs(layoutTable) do
+            if cfg.name == appName then
+                moveWindow(appName, layoutTable)
+                return
+            end
+        end
+    end
+end
+
+-- Devuelve a su posición inicial todas las ventanas abiertas ahora mismo.
+-- No lanza nada: lo que esté cerrado sigue cerrado.
+local function resetLayout()
+    local moved = 0
+    for _, layoutTable in ipairs({ currentLayout, config.onDemandAppLayout or {} }) do
+        for _, cfg in ipairs(layoutTable) do
+            local app = hs.application.get(cfg.name)
+            if app and app:mainWindow() then
+                moveWindow(cfg.name, layoutTable)
+                moved = moved + 1
+            end
+        end
+    end
+    hs.alert.show("🧹 " .. moved .. " ventanas recolocadas")
 end
 
 -- Browser opener
@@ -134,6 +172,7 @@ local function workMode()
     debugPrint("🧑🏾‍💻 Entering Work Mode...")
     hs.alert.show("🧑🏾‍💻 Entering Work Mode...")
 
+    currentLayout = config.workAppLayout
     adaptLayoutForCurrentScreen(config.workAppLayout)
     closeAllWindows()
 
@@ -176,6 +215,7 @@ local function kaizenMode()
     debugPrint("⛩️ Starting Kaizen Mode...")
     hs.alert.show("⛩️ Entering Kaizen Mode...")
 
+    currentLayout = config.kaizenAppLayout
     adaptLayoutForCurrentScreen(config.kaizenAppLayout)
     closeAllWindows()
 
@@ -229,6 +269,16 @@ local function configureFunctionKeys()
                 debugPrint("Activating Kaizen Mode...")
                 kaizenMode()
             end)
+        elseif action == "WORK_MODE" then
+            hs.hotkey.bind(modifiers, key, function()
+                debugPrint("Activating Work Mode...")
+                workMode()
+            end)
+        elseif action == "RESET_LAYOUT" then
+            hs.hotkey.bind(modifiers, key, function()
+                debugPrint("Recolocando ventanas abiertas...")
+                resetLayout()
+            end)
         elseif action == "EMOJI" then
             debugPrint("Activating Emoji Mode...")
             hs.hotkey.bind(modifiers, key, function()
@@ -236,7 +286,13 @@ local function configureFunctionKeys()
             end)
         elseif action then
             hs.hotkey.bind(modifiers, key, function()
+                -- Solo colocar la ventana al abrir la app por primera vez. Si ya estaba
+                -- corriendo la tecla es puro focus: el tamaño que le hayas dado se respeta.
+                local wasRunning = hs.application.get(action) ~= nil
                 launchOrFocusApp(action)
+                if not wasRunning then
+                    hs.timer.doAfter(config.appLaunchDelay, function() positionApp(action) end)
+                end
             end)
         end
     end
