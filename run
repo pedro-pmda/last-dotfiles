@@ -7,7 +7,7 @@ dry="0"
 cd "$script_dir" || exit 1
 
 # Buscar scripts ejecutables en la carpeta runs
-scripts=$(find ./runs -mindepth 1 -type f -perm +111)
+scripts=$(find ./runs -mindepth 1 -type f -perm /111)
 
 # Parsear argumentos
 while [[ $# -gt 0 ]]; do
