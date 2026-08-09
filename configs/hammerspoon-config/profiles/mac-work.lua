@@ -61,29 +61,29 @@ return {
     },
         
     workAppLayout = {
-        { name = "IntelliJ IDEA", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "DBeaver", position = "right", width = "2/3", vertical = "top", height = "3/3" },       
-        { name = "Slack", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Ghostty", position = "right", width = "3/4", vertical = "top", height = "3/3" },
-        { name = "Visual Studio Code", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Obsidian", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "OpenLens", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Chromium", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Google Chrome", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "Microsoft Outlook", position = "right", width = "2/3", vertical = "top", height = "3/3" },
-        { name = "Microsoft Teams", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "WebPomodoro", position = "right", width = "2/4", vertical = "top", height = "4/4" }
+        { name = "IntelliJ IDEA",        position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "DBeaver",              position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Slack",                position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Ghostty",              position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Visual Studio Code",   position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Obsidian",             position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "OpenLens",             position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Chromium",             position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Google Chrome",        position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Google Chrome Canary", position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Microsoft Outlook",    position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Microsoft Teams",      position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "WebPomodoro",          position = "right", width = "2/4", vertical = "top", height = "3/3" }
     },
 
     kaizenAppLayout = {
-        { name = "Chromium", position = "left", width = "1/3", vertical = "top", height = "3/3" },
-        { name = "Google Chrome", position = "left", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "Obsidian", position = "right", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "Visual Studio Code", position = "right", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "Ghostty", position = "right", width = "2/4", vertical = "top", height = "4/4" },
-        { name = "WebPomodoro", position = "right", width = "2/4", vertical = "top", height = "4/4" }
+        { name = "Chromium",             position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Google Chrome",        position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Google Chrome Canary", position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Obsidian",             position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Visual Studio Code",   position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Ghostty",              position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "WebPomodoro",          position = "right", width = "2/4", vertical = "top", height = "3/3" }
     },
 
     foregroundApps = {
