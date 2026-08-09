@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Guard: este script solo tiene sentido en Linux
+[[ "$(uname -s)" == "Linux" ]] || { echo "⏭️  Solo Linux — nada que hacer en macOS"; exit 0; }
+
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CONFIG_SRC="$REPO_ROOT/configs/wm-linux-config"
+PROFILES_DIR="$CONFIG_SRC/profiles"
+CONFIG_DEST="$HOME/.config/lua-wm"
+SERVICE_DIR="$HOME/.config/systemd/user"
+AUTOSTART_DIR="$HOME/.config/autostart"
+SERVICE_NAME="lua-wm"
+
+# --- 1. Paquetes ---------------------------------------------------------------
+echo "📦 Instalando lua5.3 + lgi + keybinder + wnck + notify..."
+sudo apt-get install -y \
+    lua5.3 \
+    lua-lgi \
+    gir1.2-keybinder-3.0 \
+    gir1.2-wnck-3.0 \
+    gir1.2-notify-0.7 \
+    libnotify-bin \
+    gir1.2-gtk-3.0 \
+    gir1.2-gdk-3.0 \
+    gir1.2-gio-2.0
+
+echo "✅ Paquetes instalados"
+
+# --- 2. Descubrir perfiles -----------------------------------------------------
+profiles=()
+for f in "$PROFILES_DIR"/*.lua; do
+    [[ -e "$f" ]] || continue
+    profiles+=("$(basename "$f" .lua)")
+done
+
+if [[ ${#profiles[@]} -eq 0 ]]; then
+    echo "❌ No hay ningún perfil en $PROFILES_DIR"
+    exit 1
+fi
+
+current=""
+if [[ -L "$CONFIG_DEST/app_config.lua" ]]; then
+    current=$(basename "$(readlink "$CONFIG_DEST/app_config.lua")" .lua)
+fi
+
+# --- 3. Elegir perfil ----------------------------------------------------------
+if [[ -t 0 ]]; then
+    [[ -n "$current" ]] && echo "🔗 Perfil actual: $current"
+    echo "🖥  ¿Qué perfil de lua-wm quieres instalar?"
+    select choice in "${profiles[@]}"; do
+        [[ -n "${choice:-}" ]] && break
+        echo "   Elige un número de la lista."
+    done
+    profile="${choice:-}"
+    if [[ -z "$profile" ]]; then
+        echo "❌ No se eligió ningún perfil, no se toca nada"
+        exit 1
+    fi
+elif [[ -n "$current" ]]; then
+    echo "🔗 Sin terminal interactiva, manteniendo el perfil '$current'"
+    profile="$current"
+else
+    echo "⏭️  Sin terminal interactiva y sin perfil previo. Ejecútalo a mano:"
+    echo "    ./run wm-linux"
+    exit 0
+fi
+
+# --- 4. Symlinks config --------------------------------------------------------
+mkdir -p "$CONFIG_DEST"
+stamp=$(date +%Y%m%d-%H%M%S)
+
+link() {
+    local src="$1" dest="$2"
+    if [[ -e "$dest" && ! -L "$dest" ]]; then
+        echo "⚠️  $dest existe y no es symlink → backup en $dest.backup-$stamp"
+        mv "$dest" "$dest.backup-$stamp"
+    fi
+    ln -sfn "$src" "$dest"
+    echo "🔗 $dest -> $src"
+}
+
+link "$CONFIG_SRC/init.lua"        "$CONFIG_DEST/init.lua"
+link "$PROFILES_DIR/$profile.lua"  "$CONFIG_DEST/app_config.lua"
+
+# --- 5. Servicio systemd user (para restart con Shift+F12 y para los logs) ----
+mkdir -p "$SERVICE_DIR"
+
+cat > "$SERVICE_DIR/$SERVICE_NAME.service" <<EOF
+[Unit]
+Description=lua-wm: Linux window manager daemon (Hammerspoon equivalent)
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+Environment=LUA_PATH=$CONFIG_DEST/?.lua;/usr/share/lua/5.3/?.lua;/usr/share/lua/5.3/?/init.lua;;
+Environment=LUA_CPATH=/usr/lib/x86_64-linux-gnu/lua/5.3/?.so;;
+ExecStart=/usr/bin/lua5.3 $CONFIG_DEST/init.lua
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl --user daemon-reload
+# Habilita el servicio para restart manual (Shift+F12 → systemctl --user restart lua-wm)
+# En Cinnamon/LightDM el arranque al login se hace vía XDG autostart (ver abajo)
+systemctl --user enable "$SERVICE_NAME.service" || true
+echo "✅ Servicio systemd configurado: $SERVICE_DIR/$SERVICE_NAME.service"
+echo "   → Logs: journalctl --user -u $SERVICE_NAME -f"
+
+# --- 6. XDG autostart (mecanismo primario en Cinnamon/LightDM) ----------------
+# graphical-session.target no se activa automáticamente en LightDM,
+# así que el autostart XDG es más fiable para el arranque en el login.
+mkdir -p "$AUTOSTART_DIR"
+
+cat > "$AUTOSTART_DIR/$SERVICE_NAME.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=lua-wm
+Comment=Lua window manager daemon
+Exec=/usr/bin/lua5.3 $CONFIG_DEST/init.lua
+Terminal=false
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
+EOF
+
+echo "✅ Autostart XDG configurado: $AUTOSTART_DIR/$SERVICE_NAME.desktop"
+
+echo ""
+echo "✅ lua-wm configurado con el perfil '$profile'"
+echo ""
+echo "📋 Comandos útiles:"
+echo "   Arrancar ahora:    systemctl --user start $SERVICE_NAME"
+echo "   Ver logs:          journalctl --user -u $SERVICE_NAME -f"
+echo "   Recargar config:   systemctl --user restart $SERVICE_NAME"
+echo "   (o Shift+F12 una vez que esté corriendo)"
+echo ""
+echo "🔧 Para ajustar tus apps edita:"
+echo "   $PROFILES_DIR/$profile.lua"
+echo ""
+echo "💡 Para ver el nombre exacto de una app instalada:"
+echo "   grep -r '^Name=' /usr/share/applications/ | grep -i nombre"
+echo "   xprop WM_CLASS  (clic en la ventana para ver su WM_CLASS)"
