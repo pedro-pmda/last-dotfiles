@@ -8,7 +8,11 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
 ensure_brew
 
 echo "📦 Instalando Neovim..."
-brew install neovim
+if brew list neovim &>/dev/null; then
+  echo "✅ Neovim ya está instalado."
+else
+  brew install neovim
+fi
 
 # La raíz del repo se deduce del propio script: el symlink debe apuntar al clon real,
 # viva donde viva, no a un ~/last-dotfiles asumido.
