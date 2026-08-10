@@ -1,6 +1,6 @@
 # 🧰 last-dotfiles
 
-Personal macOS dev-environment bootstrap: install scripts, dotfiles and window-management config, all plain Bash + Lua. No build step, no package manager, no tests.
+Personal dev-environment bootstrap for macOS and Linux: install scripts, dotfiles and window-management config, all plain Bash + Lua. No build step, no package manager, no tests.
 
 Inspired by [Frontend Masters — Developer Productivity 2](https://frontendmasters.com/courses/developer-productivity/).
 
@@ -34,7 +34,7 @@ cd ~/last-dotfiles
 - The filter is a plain substring match against the script path.
 - Scripts that don't match are listed at the end under `🔎 Scripts filtrados`.
 - **A script must be executable** (`chmod +x`) to be picked up — otherwise it's silently skipped.
-- `--dry` is only understood by `run` itself and by `runs/utils/copy-configs`. Everything else runs for real.
+- `--dry` is only understood by `run` itself. Everything else runs for real.
 
 ---
 
@@ -45,19 +45,20 @@ cd ~/last-dotfiles
 | Script | What it does | Notes |
 |---|---|---|
 | `install-home-brew` | Installs Homebrew if `brew` isn't on `PATH`. Works on macOS and Linux. | Idempotent. Run this first. |
-| `install-zsh` | Installs zsh + `fzf`, `kubectx`, `thefuck`, `autojump`; installs Antigen and `kube-ps1`; writes a fresh `~/.zshrc`; sets zsh as the default shell (`chsh`). | ⚠️ **Overwrites `~/.zshrc`.** The heredoc inside the script has drifted from `configs/zsh-config/.zshrc` — the latter is the current one. Back up before running. |
-| `install-nvim` | `brew install neovim`. | One-liner; the config lives in `configs/nvim-config/`. |
-| `install-tmux` | `brew install tmux` and writes `~/.config/tmux/tmux.conf`. | Prefix remapped to `C-a`, vi copy-mode with `pbcopy`, `hjkl` pane navigation, `prefix + r` reloads. Overwrites the existing conf. |
-| `install-docker` | `brew install --cask docker` and opens Docker Desktop. | Fails early with a clear message if Homebrew is missing. |
-| `install-node-version-manager` | `brew install nvm`, creates `~/.nvm`, appends the `NVM_DIR` block to `~/.zshrc` if absent, then installs the latest Node and sets it as default. | Apple Silicon paths (`/opt/homebrew`) hardcoded. |
-| `install-hammerspoon` | Installs Hammerspoon if missing, asks which profile you want, and **symlinks** `~/.hammerspoon/init.lua` and `~/.hammerspoon/app_config.lua` into this repo. | Interactive. Backs up any real (non-symlink) file it would replace. See [Hammerspoon](#hammerspoon-config--window-management) below. |
+| `install-zsh` | Installs zsh + `fzf`, `kubectx`, `thefuck`, `autojump`; installs Antigen and `kube-ps1`; **symlinks** `~/.zshrc` to `configs/zsh-config/.zshrc`; sets zsh as the default shell (`chsh`). | Backs up any real (non-symlink) `~/.zshrc` it would replace. Editing `configs/zsh-config/.zshrc` edits the live shell config directly. |
+| `install-nvim` | `brew install neovim`, then **symlinks** `~/.config/nvim` to `configs/nvim-config/`. | Backs up any real (non-symlink) `~/.config/nvim` it would replace. |
+| `install-tmux` | `brew install tmux` and writes `~/.config/tmux/tmux.conf`. | Prefix remapped to `C-a`, vi copy-mode (`pbcopy` on macOS, `xclip`/`wl-copy` on Linux depending on the session), `hjkl` pane navigation, `prefix + r` reloads. Overwrites the existing conf. |
+| `install-docker` | macOS: `brew install --cask docker` and opens Docker Desktop. Linux: installs Docker Engine via the official `get.docker.com` script, enables the systemd service, and adds you to the `docker` group. | Skips if `docker` is already on `PATH`. On Linux you need to log out/in for the group change to apply. |
+| `install-node-version-manager` | `brew install nvm`, creates `~/.nvm`, appends the `NVM_DIR` block to `~/.zshrc` if absent, then installs the latest Node and sets it as default. | Resolves nvm's path via `brew --prefix nvm` — works on Linuxbrew, Apple Silicon and Intel Mac. |
+| `install-hammerspoon` | macOS only (guard-skips on Linux — see `install-wm-linux` below for its Linux sibling). Installs Hammerspoon if missing, asks which profile you want, and **symlinks** `~/.hammerspoon/init.lua` and `~/.hammerspoon/app_config.lua` into this repo. | Interactive. Backs up any real (non-symlink) file it would replace. See [Hammerspoon](#hammerspoon-config--window-management) below. |
+| `install-wm-linux` | Linux only (guard-skips on macOS). Installs `lua-wm`, a custom Lua window-manager daemon that's the Hammerspoon equivalent for Linux: apt packages (`lua5.3`, `lgi`, keybinder/wnck/notify GTK bindings), symlinks `~/.config/lua-wm/{init.lua,app_config.lua}` from `configs/wm-linux-config/`, and registers a `systemd --user` service plus an XDG autostart entry. | Interactive profile picker, same pattern as `install-hammerspoon`. `Shift+F12`-equivalent reload is `systemctl --user restart lua-wm`. |
 | `install-git-hooks` | Copies everything in `hooks/` into `./.git/hooks` and makes it executable. | ⚠️ Acts on the **current directory's** repo — `cd` into the target project first. Running it from here installs the zooplus hooks onto this repo. |
 
 ### `runs/infra/`
 
 | Script | What it does | Notes |
 |---|---|---|
-| `install-k3s` | `brew install k3d`, checks Docker is running, then creates a local cluster `peter-cluster` with 2 agents and `8080:80` on the load balancer. | Verify with `kubectl get nodes`. |
+| `install-k3s` | `brew install k3d`, checks Docker is running (`docker info`, works whether Docker is a macOS app or a Linux systemd service), then creates a local cluster `peter-cluster` with 2 agents and `8080:80` on the load balancer. | Verify with `kubectl get nodes`. |
 | `switch-cluster <arn>` | `kubectl config use-context <arn>`. | Takes one argument. With none, `set -u` aborts before the friendly error. Wrapped by the `kdev` / `kprod` aliases. |
 
 ### `runs/access/`
@@ -72,13 +73,12 @@ cd ~/last-dotfiles
 |---|---|---|
 | `tmux-sessionizer` | fzf-picks a directory under `~/kaizen` or `~/zooplus`, creates or attaches a tmux session named after it, and runs `ready-tmux` inside. | Aliased to `session`. Works both inside and outside tmux. |
 | `ready-tmux` | Runs `./.ready-tmux` from the current directory if it's executable, else `~/.ready-tmux`. | The per-project session-layout hook. Templates in `configs/tmux-examples/`. |
-| `copy-configs` | Generic config copier with `--dry` support. | ⚠️ Currently points at `.config/` and `.specialconfig`, neither of which exists in this repo — leftover from the course. Not usable as-is. |
 
 ---
 
 ## 🗂️ Configs
 
-Files under `configs/` are copied out to their real homes.
+Files under `configs/` are symlinked out to their real homes.
 
 ### `hammerspoon-config/` — 🎯 window management
 
@@ -129,6 +129,20 @@ The config table holds:
 `profiles/mac-work.lua` and `profiles/mac-personal.lua` are self-contained per-machine profiles —
 **keep new options in sync across all of them**.
 
+### `wm-linux-config/` — 🐧 window management (Linux)
+
+The Hammerspoon equivalent for Linux: `init.lua` runs as a `lua5.3` daemon (via `lgi`/GTK, `Wnck`,
+`Keybinder`, `libnotify`) instead of relying on a macOS-only accessibility API. Same shape as
+`hammerspoon-config/`: `app_config.lua` is a symlink into `profiles/`, installed and reloaded via
+
+```bash
+./run wm-linux
+```
+
+Reload after editing a profile with `systemctl --user restart lua-wm` (bound the same way
+`Shift+F12` reloads Hammerspoon on macOS). Logs: `journalctl --user -u lua-wm -f`. Currently only
+`profiles/linux-personal.lua` exists (no `linux-work.lua` counterpart yet).
+
 ### `zsh-config/.zshrc`
 
 The current shell config: Antigen + oh-my-zsh, Powerlevel10k, autosuggestions/completions/syntax-highlighting, `z`, fzf-tab, `kube-ps1` in the prompt, nvm, SDKMAN, and the aliases below.
@@ -152,7 +166,7 @@ The current shell config: Antigen + oh-my-zsh, Powerlevel10k, autosuggestions/co
 
 ### `nvim-config/init.lua`
 
-A [kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) config, single file, heavily commented. Copy to `~/.config/nvim/init.lua`.
+A [kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) config, single file, heavily commented. `./run nvim` symlinks the whole directory to `~/.config/nvim` — editing it here edits the live config.
 
 ### `tmux-examples/`
 
@@ -187,9 +201,7 @@ fix(zsh): 🐛 correct PATH export
 
 Documented rather than silently patched:
 
-- `install-zsh` overwrites `~/.zshrc` with a version that has drifted from `configs/zsh-config/.zshrc`.
-- Both zshrc variants contain a broken `PATH` entry: `/usr/local/bl:wqn`.
-- `copy-configs` points at paths that don't exist in this repo.
 - `hooks/commit-msg` never fails a commit.
 - `switch-cluster` with no argument dies on `set -u` before printing its own error.
-- Apple Silicon (`/opt/homebrew`) and the `~/last-dotfiles` clone path are hardcoded in several places.
+- The `~/last-dotfiles` clone path is hardcoded in several places (aliases, `install-hammerspoon`/`install-wm-linux` derive the repo root from the script's own location instead, so those two are safe).
+- `wm-linux-config/` only has a `linux-personal.lua` profile; there's no `linux-work.lua` counterpart to `mac-work.lua` yet.
