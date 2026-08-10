@@ -91,8 +91,10 @@ whatever order the filesystem happens to return:
 5. `install-tmux`
 6. `install-docker`
 7. `install-git-config`
-8. `install-hammerspoon` (macOS; guard-skips on Linux)
-9. `install-wm-linux` (Linux; guard-skips on macOS)
+8. `install-ghostty`
+9. `install-cli-configs`
+10. `install-hammerspoon` (macOS; guard-skips on Linux)
+11. `install-wm-linux` (Linux; guard-skips on macOS)
 
 `runs/infra/`, `runs/access/` and `runs/utils/` need an explicit filter, because they're imperative
 or interactive rather than idempotent installers: `install-k3s` creates a cluster, `tmux-sessionizer`
@@ -126,14 +128,16 @@ Sourced by the installers, never executed on its own.
 | Script | What it does | Notes |
 |---|---|---|
 | `install-home-brew` | Installs Homebrew if `brew` isn't on `PATH`. Works on macOS and Linux. | Idempotent. Run this first. |
-| `install-zsh` | **Symlinks** `~/.zshrc` to `configs/zsh-config/.zshrc` first, then installs zsh + `fzf`, `kubectx`, `thefuck`, `autojump`, Antigen and `kube-ps1`, and sets zsh as the default shell. | Backs up any real (non-symlink) `~/.zshrc` it would replace. Editing `configs/zsh-config/.zshrc` edits the live shell config directly. The symlink goes first on purpose: it's the one step that must not be left half-done. `chsh` registers the shell in `/etc/shells` if it isn't there (Homebrew's zsh never is), and degrades to a warning instead of aborting. |
+| `install-zsh` | **Symlinks** `~/.zshrc` and `~/.p10k.zsh` to `configs/zsh-config/` first, then installs zsh + `fzf`, `kubectx`, `thefuck`, `autojump`, Antigen and `kube-ps1`, and sets zsh as the default shell. | Backs up any real (non-symlink) `~/.zshrc` it would replace. Editing `configs/zsh-config/.zshrc` edits the live shell config directly. The symlink goes first on purpose: it's the one step that must not be left half-done. `chsh` registers the shell in `/etc/shells` if it isn't there (Homebrew's zsh never is), and degrades to a warning instead of aborting. |
 | `install-nvim` | `brew install neovim`, then **symlinks** `~/.config/nvim` to `configs/nvim-config/`. | Backs up any real (non-symlink) `~/.config/nvim` it would replace. |
-| `install-tmux` | `brew install tmux` and writes `~/.config/tmux/tmux.conf`. | Prefix remapped to `C-a`, vi copy-mode (`pbcopy` on macOS, `xclip`/`wl-copy` on Linux depending on the session), `hjkl` pane navigation, `prefix + r` reloads. Backs up an existing conf before overwriting it. |
+| `install-tmux` | `brew install tmux`, then **symlinks** `~/.config/tmux/{tmux.conf,clipboard.sh}` and `~/.ready-tmux`. On Linux also installs xclip + wl-clipboard. | Prefix remapped to `C-a`, vi copy-mode, `hjkl` pane navigation, `prefix + r` reloads. The clipboard command is chosen at yank time by `clipboard.sh`, so the same conf works on macOS, X11 and Wayland. |
 | `install-docker` | macOS: `brew install --cask docker-desktop` and opens Docker Desktop. Linux: installs Docker Engine via the official `get.docker.com` script, enables the systemd service (if `systemctl` exists), and adds you to the `docker` group. | Skips if `docker` is already on `PATH`. On Linux you need to log out/in for the group change to apply. |
 | `install-node-version-manager` | `brew install nvm`, creates `~/.nvm`, then installs the latest Node and sets it as default. | Writes nothing into `~/.zshrc` — that file is a symlink into this repo, so appending machine-specific brew paths to it put the wrong `/opt/homebrew` vs `/home/linuxbrew` path in version control. `.zshrc` loads nvm via `$HOMEBREW_PREFIX` instead. |
 | `install-hammerspoon` | macOS only (guard-skips on Linux — see `install-wm-linux` below for its Linux sibling). Installs Hammerspoon if missing, asks which profile you want, and **symlinks** `~/.hammerspoon/init.lua` and `~/.hammerspoon/app_config.lua` into this repo. | Interactive. Backs up any real (non-symlink) file it would replace. See [Hammerspoon](#hammerspoon-config--window-management) below. |
 | `install-wm-linux` | Linux only (guard-skips on macOS). Installs `lua-wm`, a custom Lua window-manager daemon that's the Hammerspoon equivalent for Linux: apt packages (`lua5.3`, `lgi`, keybinder/wnck/notify GTK bindings), symlinks `~/.config/lua-wm/{init.lua,app_config.lua}` from `configs/wm-linux-config/`, and registers a `systemd --user` service plus an XDG autostart entry. | Interactive profile picker, same pattern as `install-hammerspoon`. `Shift+F12`-equivalent reload is `systemctl --user restart lua-wm`. The Lua interpreter and the multiarch triplet for `lgi` are discovered, not hardcoded, so it also comes up on arm64. Works without a systemd user session (the XDG autostart entry is the primary boot path anyway). |
 | `install-git-config` | **Symlinks** `~/.gitconfig`, `~/.gitconfig_kaizen`, `~/.gitconfig_zooplus` and `~/.gitignore_global` to `configs/git-config/`. | Backs up any real file it replaces. |
+| `install-ghostty` | Installs the Ghostty cask on macOS, then **symlinks** `~/.config/ghostty/config`. | Also moves macOS's `~/Library/Application Support/com.mitchellh.ghostty/config` aside, because it takes priority over the XDG path. On Linux there's no official apt package, so it points you at the download page and links the config anyway. |
+| `install-cli-configs` | **Symlinks** `~/.config/{k9s,htop,glow,direnv}` to `configs/cli-config/`. | Directory-level links, like nvim, so a new file inside needs no script change. |
 
 ### `runs/infra/`
 
@@ -160,7 +164,36 @@ Sourced by the installers, never executed on its own.
 
 ## 🗂️ Configs
 
-Files under `configs/` are symlinked out to their real homes.
+Everything under `configs/` is **symlinked** to where the tool expects it, so editing a file here
+edits the live config — no reinstall. Where a file lands, and who links it:
+
+| `configs/` | Symlinked to | Installer |
+|---|---|---|
+| `zsh-config/.zshrc` | `~/.zshrc` | `install-zsh` |
+| `zsh-config/.p10k.zsh` | `~/.p10k.zsh` | `install-zsh` |
+| `nvim-config/` | `~/.config/nvim` | `install-nvim` |
+| `tmux-config/tmux.conf` | `~/.config/tmux/tmux.conf` | `install-tmux` |
+| `tmux-config/clipboard.sh` | `~/.config/tmux/clipboard.sh` | `install-tmux` |
+| `tmux-examples/.ready-tmux-default` | `~/.ready-tmux` | `install-tmux` |
+| `ghostty-config/config` | `~/.config/ghostty/config` | `install-ghostty` |
+| `git-config/.gitconfig` + the two identities + `.gitignore_global` | `~/` | `install-git-config` |
+| `cli-config/{k9s,htop,glow,direnv}/` | `~/.config/<tool>/` | `install-cli-configs` |
+| `hammerspoon-config/{init.lua,profiles/<one>.lua}` | `~/.hammerspoon/{init.lua,app_config.lua}` | `install-hammerspoon` |
+| `wm-linux-config/{init.lua,profiles/<one>.lua}` | `~/.config/lua-wm/{init.lua,app_config.lua}` | `install-wm-linux` |
+
+Every installer backs up a real (non-symlink) file it would replace to `<dest>.backup-<timestamp>`
+before linking, so the first run on an already-configured machine never destroys anything.
+
+Three things worth knowing about this model:
+
+- **Some files are written back by their tool.** `nvim` updates `lazy-lock.json`, `htop` rewrites
+  `htoprc` when you change settings in its UI, `k9s` may rewrite `config.yaml` on exit. Through the
+  symlink those land in the repo as normal changes. For the lockfile that's the point; for the other
+  two it's just occasional noise to commit or discard.
+- **Nothing else is generated any more.** `install-tmux` used to write `tmux.conf` with a heredoc,
+  which made it the one config you couldn't edit from the repo. It links now.
+- **`tmux-examples/` is still templates** you copy into a project as `.ready-tmux`, except
+  `.ready-tmux-default`, which doubles as the symlinked global fallback.
 
 ### `hammerspoon-config/` — 🎯 window management
 
@@ -254,7 +287,11 @@ macOS-only for now — lua-wm always uses the primary monitor.
 
 Tests for all this live in `configs/wm-linux-config/test/` — see its README.
 
-### `zsh-config/.zshrc`
+### `zsh-config/`
+
+`.zshrc` and `.p10k.zsh` (the Powerlevel10k prompt theme, 89 KB of generated settings — `.zshrc`
+sources it, so without versioning it a new machine started with p10k's setup wizard instead of your
+prompt).
 
 The current shell config: Antigen + oh-my-zsh, Powerlevel10k, autosuggestions/completions/syntax-highlighting, `z`, fzf-tab, `kube-ps1` in the prompt, nvm, SDKMAN, and the aliases below.
 
@@ -270,6 +307,42 @@ The current shell config: Antigen + oh-my-zsh, Powerlevel10k, autosuggestions/co
 | `gst`, `gl` | `git status`, pretty `git log` |
 | `dpsp` | `docker ps` as a compact table |
 | `tf`, `cls` | `terraform`, `clear` |
+
+### `tmux-config/`
+
+`tmux.conf` is a single static file that works on both OSes. The only thing that differs between
+systems — the clipboard command — isn't decided here: it's delegated to `clipboard.sh`, which picks
+`pbcopy` / `wl-copy` / `xclip` **at yank time**.
+
+That timing is the whole point. On Linux `install-tmux` installs xclip *and* wl-clipboard, so
+`command -v` finds both and only `$WAYLAND_DISPLAY` can tell them apart — and that depends on the
+graphical session you're in, not on the machine. Doing it with `if-shell` inside `tmux.conf` would
+resolve it when the tmux server starts, so entering a session of the other type would silently yank
+to the wrong clipboard until you reloaded. A wrapper script gets it right every time.
+
+### `ghostty-config/`
+
+`config` is linked to `~/.config/ghostty/config`, which Ghostty honours on macOS *and* Linux, so one
+file covers both.
+
+⚠️ On macOS Ghostty also reads `~/Library/Application Support/com.mitchellh.ghostty/config`, and
+**that one wins** for any key present in both — verified: a `font-size` set only in the XDG file
+had no effect. `install-ghostty` therefore moves it aside to `.backup-<timestamp>`. If it ever
+reappears, something recreated it and it's silently overriding this repo. Check what's actually in
+effect with:
+
+```bash
+ghostty +show-config
+```
+
+### `cli-config/`
+
+Small configs for terminal tools, one directory each, linked to `~/.config/<tool>/`: `k9s`
+(+ its `aliases.yaml`), `htop`, `glow`, `direnv`.
+
+`k9s`'s `screenDumpDir` was removed — it hardcoded `/Users/<user>/Library/...`, which is wrong on
+Linux; k9s falls back to its own per-platform default. Not included: `lazygit` (empty config),
+`neofetch` / `zellij` / `bpytop` (untouched default templates).
 
 ### `git-config/`
 
@@ -341,9 +414,6 @@ Documented rather than silently patched:
   unnoticed). The upstream repo is fine — `git clone` of it works by hand — so it's something in
   antigen's fetch. `Aloxaf/fzf-tab` is installed and covers fzf completion; what's missing is the
   extra fzf keybindings/aliases. Predates the cross-platform work and is unrelated to it.
-- The generated `~/.config/tmux/tmux.conf` bakes in the clipboard command at install time, so it is
-  **not** portable between a Mac and a Linux box: copying it over yields `pbcopy: command not found`
-  on every yank. Re-run `./run tmux` on each machine instead.
 - The `.ready-tmux` templates send this repo's zsh aliases (`gl`, `kdev`) into panes, so they assume
   this `.zshrc` is in effect.
 - Non-Debian Linux isn't supported: the scripts that need system packages check for `apt-get` and
@@ -351,7 +421,8 @@ Documented rather than silently patched:
 
 ### Fixed, for the record
 
-Things that used to be listed here and no longer apply: `./run` silently doing nothing on macOS
+Things that used to be listed here and no longer apply: the generated `tmux.conf` baking in the
+clipboard command (it's a symlinked static file now), `./run` silently doing nothing on macOS
 (`find -perm /111` is GNU-only), the bootstrap running in filesystem order, `hooks/commit-msg` never
 failing a commit, `hooks/pre-commit` never blocking one, `switch-cluster` dying before its own error
 message, `install-node-version-manager` writing brew paths into the versioned `.zshrc`, `repokeys`

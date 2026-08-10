@@ -52,14 +52,42 @@ def check(name, ok, detail=""):
     print(("  ✅ " if ok else "  ❌ ") + name + (f"  → {detail}" if detail and not ok else ""))
     return 0 if ok else 1
 
+# Lo que se espera se deriva del repo, no se fija a mano: si no, añadir un script
+# desplaza los números del menú y el test falla por motivos que no son un bug.
+OS_KEY = "darwin" if os.uname().sysname == "Darwin" else "linux"
+
+def script_os(path):
+    for line in open(path, encoding="utf-8", errors="replace"):
+        m = re.match(r"# run-os: (\S+)", line)
+        if m:
+            return m.group(1)
+    return "any"
+
+def applicable(folder):
+    d = os.path.join(REPO, "runs", folder)
+    out = []
+    for name in sorted(os.listdir(d)):
+        p = os.path.join(d, name)
+        if os.path.isfile(p) and os.access(p, os.X_OK) and script_os(p) in ("any", OS_KEY):
+            out.append(name)
+    return out
+
+def menu_index(out):
+    """Mapa nº → nombre de script, leído del menú tal como se renderiza."""
+    idx = {}
+    for m in re.finditer(r"[○●]\s*(\d+)\)\s+(\S+)", out):
+        idx[int(m.group(1))] = m.group(2)
+    return idx
+
 fails = 0
 print("=== A. Seleccionar 2 y 4, luego ejecutar ===")
 out, rc = run(["2 4\n", "\n"])
-ran = re.findall(r"running script: (\S+)", out)
+ran = [os.path.basename(x) for x in re.findall(r"running script: (\S+)", out)]
+idx = menu_index(out)
+expected = sorted(n for k, n in idx.items() if k in (2, 4))
 fails += check("ejecuta exactamente los dos elegidos", len(ran) == 2, f"ejecutó {ran}")
-fails += check("son install-docker e install-hammerspoon",
-               sorted(os.path.basename(x) for x in ran) == ["install-docker", "install-hammerspoon"],
-               str(ran))
+fails += check(f"son los que el menú numeraba 2 y 4 ({', '.join(expected)})",
+               sorted(ran) == expected, f"ran={sorted(ran)} esperado={expected}")
 fails += check("install-wm-linux oculto en macOS", "install-wm-linux" not in
                out.split("Ocultos")[0], "aparecía en la lista")
 fails += check("aparece en la nota de ocultos", "install-wm-linux" in out)
@@ -67,11 +95,14 @@ fails += check("exit 0", rc == 0, f"rc={rc}")
 
 print("\n=== B. 'b' selecciona solo el bootstrap ===")
 out, rc = run(["b\n", "\n"])
-ran = re.findall(r"running script: (\S+)", out)
+ran = [os.path.basename(x) for x in re.findall(r"running script: (\S+)", out)]
+want = applicable("bootstrap")
 fails += check("todos los ejecutados son de bootstrap",
-               bool(ran) and all("/bootstrap/" in x for x in ran), str(ran))
-fails += check("son 8 (los 9 menos wm-linux, que no es de macOS)", len(ran) == 8, f"{len(ran)}")
-fails += check("install-home-brew va primero", ran and ran[0].endswith("install-home-brew"),
+               bool(ran) and all("/bootstrap/" in x for x in
+                                 re.findall(r"running script: (\S+)", out)), str(ran))
+fails += check(f"son los {len(want)} de bootstrap que aplican a este OS",
+               sorted(ran) == want, f"ran={sorted(ran)} esperado={want}")
+fails += check("install-home-brew va primero", ran and ran[0] == "install-home-brew",
                ran[0] if ran else "")
 
 print("\n=== C. 'q' sale sin ejecutar nada ===")

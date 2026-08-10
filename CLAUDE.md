@@ -8,11 +8,11 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 |---|---|
 | `run` | Entrypoint. No filter → `runs/bootstrap/` in `BOOTSTRAP_ORDER`. With a filter → substring match over all of `runs/`. |
 | `runs/lib/` | Sourced helpers, **not executable** so `run` skips them: `brew-env.sh` (`ensure_brew`), `apt.sh` (`require_apt`, `apt_install`) |
-| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, git-config, hammerspoon (macOS), wm-linux (Linux) |
+| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, git-config, ghostty, cli-configs, hammerspoon (macOS), wm-linux (Linux) |
 | `runs/infra/` | `install-k3s` (k3d cluster), `switch-cluster` (kubectl context) |
 | `runs/access/` | `repokeys` — loads every private key in `~/.ssh` into an existing ssh-agent |
 | `runs/utils/` | `ready-tmux`, `tmux-sessionizer`, `install-git-hooks` |
-| `configs/` | Files copied to their real homes: `hammerspoon-config/` (macOS), `wm-linux-config/` (Linux), `nvim-config/`, `zsh-config/`, `git-config/`, `tmux-examples/` |
+| `configs/` | **Everything here is symlinked** to where the tool expects it — editing a file here edits the live config. `zsh-config/` (`.zshrc` + `.p10k.zsh`), `nvim-config/`, `tmux-config/`, `tmux-examples/`, `ghostty-config/`, `git-config/`, `cli-config/` (k9s, htop, glow, direnv), `hammerspoon-config/` (macOS), `wm-linux-config/` (Linux). Full destination table in `README.md`. |
 | `hooks/` | Git hooks installed into a **target** repo by `install-git-hooks`. zooplus conventions (`ZOOB-*` Jira IDs, `MAJOR\|MINOR\|REVISION \| ...`, `ui/` Prettier+ESLint). Not meant to run on this repo. |
 
 ## Running tasks
@@ -43,6 +43,10 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 - Bash: `#!/usr/bin/env bash` + `set -euo pipefail`, emoji-prefixed `echo` progress lines.
 - Messages mix Spanish and English — **match the file you're editing**, don't normalize.
 - Installers must be idempotent: check `command -v` / existing dirs, don't fail on re-run.
+- **Configs are applied by symlink, never generated and never copied.** Adding a config means: file into `configs/<thing>/`, then an installer that links it and backs up a real file it would replace to `<dest>.backup-<timestamp>`. `install-tmux` used to generate its `tmux.conf` with a heredoc; that's what made it the one config you couldn't edit from the repo, and it was fixed rather than kept as a pattern.
+- Anything OS-dependent inside a config gets resolved **at use time, not at install time** — `tmux-config/clipboard.sh` picks the clipboard command on every yank, because `$WAYLAND_DISPLAY` describes the session, not the machine. Baking the choice in at install time is what made the old `tmux.conf` non-portable.
+- Strip user-specific absolute paths when versioning someone's live config (`k9s`'s `screenDumpDir` held `/Users/<user>/Library/...`). Prefer letting the tool use its own per-platform default.
+- Some tools write their own config back (nvim's `lazy-lock.json`, `htoprc`, k9s's `config.yaml`). Through a symlink that shows up as repo changes — expected, not a bug.
 - Homebrew assumed on both OSes (Linuxbrew on Linux). **Never hardcode a prefix**: in scripts `source runs/lib/brew-env.sh` and call `ensure_brew`; in `.zshrc` use `$HOMEBREW_PREFIX` (exported by `brew shellenv`) rather than forking `brew --prefix` on every shell start. The candidate list lives in one place now — `.zshrc` keeps an inline copy only because it can't source a path inside the repo.
 - System packages on Linux go through `runs/lib/apt.sh`, never a bare `sudo apt-get install`: it does the `apt-get update` that was missing and fails readably on non-Debian.
 - Prefer POSIX over GNU-isms in anything that runs on both: `find -perm -111` not `/111`, `command -v` not `which`, `grep -q -E` not `--quiet --extended-regexp`. macOS ships BSD userland and bash 3.2 — no `mapfile`, no `declare -A`, and iterating `"${arr[@]}"` on an empty array under `set -u` is an error, so guard with a length check.
@@ -51,6 +55,14 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
   2. **Guard-and-skip, one script per OS** when the tool itself only exists on one platform — e.g. `install-hammerspoon` (Darwin-only) / `install-wm-linux` (Linux-only), a symmetric pair.
 - Every script derives the repo root from `${BASH_SOURCE[0]}`. Only the `.zshrc` aliases hardcode `~/last-dotfiles`.
 - Commits: Conventional Commits + emoji — `feat(hammerspoon): 🎯 update config layout`, `fix(zsh): 🐛 ...`.
+
+## Ghostty
+
+`configs/ghostty-config/config` → `~/.config/ghostty/config`, a path Ghostty honours on both OSes.
+
+The trap: on macOS Ghostty *also* reads `~/Library/Application Support/com.mitchellh.ghostty/config`, and **that file wins** for any key set in both (verified — a `font-size` in the XDG file had no effect). `install-ghostty` moves it aside with a backup; without that the symlink is decoration. If it reappears, something recreated it and is silently overriding the repo. `ghostty +show-config` shows what's actually in effect.
+
+Linux has no official apt package, so the installer links the config and points at the download page instead of guessing.
 
 ## Hammerspoon
 
