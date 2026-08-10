@@ -1,17 +1,43 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-HOOKS_DIR="$HOME/last-dotfiles/hooks"
-GIT_HOOKS_DIR=".git/hooks"
+set -euo pipefail
 
-if [ ! -d "$GIT_HOOKS_DIR" ]; then
+# ⚠️  Esto se ejecuta DENTRO del repo destino, no aquí: escribe en ./.git/hooks del
+# directorio actual. Por eso vive en runs/utils y no en runs/bootstrap — un ./run a
+# secas no debe instalar los hooks de zooplus en el repo en el que estés.
+
+# La raíz del repo de dotfiles se deduce del propio script, no de un
+# ~/last-dotfiles asumido: era el último sitio donde quedaba esa suposición.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+HOOKS_DIR="$REPO_ROOT/hooks"
+GIT_HOOKS_DIR="$(git rev-parse --git-path hooks 2>/dev/null || true)"
+
+if [[ -z "$GIT_HOOKS_DIR" || ! -d "$GIT_HOOKS_DIR" ]]; then
   echo "❌ Este directorio no parece ser un repositorio Git"
+  echo "   Ejecútalo desde dentro del repo donde quieras los hooks."
   exit 1
 fi
 
-for hook in "$HOOKS_DIR"/*; do
+if [[ ! -d "$HOOKS_DIR" ]]; then
+  echo "❌ No se encuentra $HOOKS_DIR"
+  exit 1
+fi
+
+# Sin este check, si el glob no encontraba nada quedaba literal y el bucle
+# imprimía "✅ Instalado hook: *" habiendo fallado el cp.
+shopt -s nullglob
+hooks=("$HOOKS_DIR"/*)
+shopt -u nullglob
+
+if [[ ${#hooks[@]} -eq 0 ]]; then
+  echo "❌ $HOOKS_DIR está vacío"
+  exit 1
+fi
+
+echo "🪝 Instalando hooks en $GIT_HOOKS_DIR"
+for hook in "${hooks[@]}"; do
   hook_name=$(basename "$hook")
   cp "$hook" "$GIT_HOOKS_DIR/$hook_name"
   chmod +x "$GIT_HOOKS_DIR/$hook_name"
   echo "✅ Instalado hook: $hook_name"
 done
-

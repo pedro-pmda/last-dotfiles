@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 if command -v docker &> /dev/null; then
   echo "✅ Docker ya está instalado."
@@ -14,7 +14,13 @@ if [[ "$(uname -s)" == "Linux" ]]; then
   rm -f /tmp/get-docker.sh
 
   echo "🔧 Habilitando y arrancando el servicio de Docker..."
-  sudo systemctl enable --now docker
+  # WSL2 y las distros sin systemd no tienen systemctl: ahí el script oficial ya
+  # deja el engine instalado y solo falta arrancarlo a mano.
+  if command -v systemctl &>/dev/null; then
+    sudo systemctl enable --now docker
+  else
+    echo "⚠️  Sin systemctl aquí. Arranca el daemon como corresponda en tu sistema."
+  fi
 
   echo "👤 Añadiendo $USER al grupo 'docker' (para usar docker sin sudo)..."
   sudo usermod -aG docker "$USER"
@@ -23,19 +29,17 @@ if [[ "$(uname -s)" == "Linux" ]]; then
 else
   echo "🐳 Instalando Docker Desktop en macOS..."
 
-  # Verificar si Homebrew está instalado
-  if ! command -v brew &> /dev/null; then
-    echo "❌ Homebrew no está instalado. Por favor instálalo primero desde https://brew.sh"
-    exit 1
-  fi
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
 
   # Actualizar Homebrew
   echo "🔄 Actualizando Homebrew..."
   brew update
 
-  # Instalar Docker Desktop
+  # Instalar Docker Desktop. El cask se llama docker-desktop; "docker" sigue
+  # funcionando como alias, pero conviene no depender de él.
   echo "🍺 Instalando Docker Desktop..."
-  brew install --cask docker
+  brew install --cask docker-desktop
 
   echo "🚀 Abriendo Docker Desktop por primera vez (puede pedir permisos)..."
   open -a Docker

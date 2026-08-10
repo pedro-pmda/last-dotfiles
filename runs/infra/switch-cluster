@@ -2,10 +2,13 @@
 
 set -euo pipefail
 
-CLUSTER_ARN=$1
+# El :- es lo que hace que el mensaje de abajo se llegue a imprimir: con `$1` a
+# secas, set -u abortaba con "unbound variable" antes de llegar al error propio.
+CLUSTER_ARN="${1:-}"
 
 if [[ -z "$CLUSTER_ARN" ]]; then
   echo "❌ You must provide a cluster ARN"
+  echo "   Uso: switch-cluster <arn>   (o usa los alias kdev / kprod)"
   exit 1
 fi
 

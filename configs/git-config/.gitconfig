@@ -2,15 +2,19 @@
   path = ~/.gitconfig_zooplus
 [includeIf "gitdir:~/kaizen/"]
   path = ~/.gitconfig_kaizen
+[includeIf "gitdir:~/last-dotfiles/"]
+  path = ~/.gitconfig_kaizen
 [user]
 	name = Pedro Palazón Martínez de Alegría
 [core]
-	excludesfile = /Users/zp2391/.gitignore_global
+	excludesfile = ~/.gitignore_global
+[pull]
+	rebase = true
+# Sourcetree solo existe en macOS. Se dejan aquí porque son inertes en Linux:
+# git no toca estas herramientas salvo que las pidas con `git difftool -t sourcetree`.
 [difftool "sourcetree"]
 	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
-	path = 
+	path =
 [mergetool "sourcetree"]
 	cmd = /Applications/Sourcetree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
 	trustExitCode = true
-[commit]
-	template = /Users/zp2391/.stCommitMsg

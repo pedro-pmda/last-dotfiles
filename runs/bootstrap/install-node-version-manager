@@ -1,15 +1,18 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 # Homebrew puede haberse instalado en este mismo ./run pero no estar aún en el
 # PATH de este proceso (el instalador solo lo añade a ~/.zshrc).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
 ensure_brew
 
-# Instalar NVM usando Homebrew
-brew update
-brew install nvm
+echo "🍺 Instalando NVM con Homebrew..."
+if brew list nvm &>/dev/null; then
+  echo "✅ nvm ya está instalado."
+else
+  brew install nvm
+fi
 
 # Crear directorio para NVM si no existe
 mkdir -p ~/.nvm
@@ -17,25 +20,23 @@ mkdir -p ~/.nvm
 # Prefix real de nvm en este brew (Linuxbrew, Apple Silicon o Intel Mac)
 NVM_PREFIX="$(brew --prefix nvm)"
 
-# Añadir configuración de entorno a tu shell config (por ejemplo, .zshrc o .bashrc)
-CONFIG_FILE="${HOME}/.zshrc" # cambia si usas bash
-
-if ! grep -q 'export NVM_DIR' "$CONFIG_FILE"; then
-  {
-    echo 'export NVM_DIR="$HOME/.nvm"'
-    echo "[ -s \"$NVM_PREFIX/nvm.sh\" ] && \\. \"$NVM_PREFIX/nvm.sh\""
-    echo "[ -s \"$NVM_PREFIX/etc/bash_completion.d/nvm\" ] && \\. \"$NVM_PREFIX/etc/bash_completion.d/nvm\""
-  } >> "$CONFIG_FILE"
-fi
+# Aquí antes se hacía `>> ~/.zshrc`. Como install-zsh convierte ~/.zshrc en un
+# symlink al repo, eso escribía rutas absolutas de brew (/opt/homebrew/opt/nvm vs
+# /home/linuxbrew/.linuxbrew/opt/nvm) dentro del fichero versionado, y quedaban
+# mal en el otro OS. configs/zsh-config/.zshrc ya carga nvm vía $HOMEBREW_PREFIX,
+# así que este script solo tiene que instalar la formula.
 
 # Cargar configuración en la sesión actual
 export NVM_DIR="$HOME/.nvm"
+# nvm.sh usa variables sin definir, así que se relaja -u mientras se carga.
+set +u
 source "$NVM_PREFIX/nvm.sh"
+set -u
 
 # Instalar la última versión de Node
+echo "📦 Instalando la última versión de Node..."
 nvm install node
 nvm use node
 nvm alias default node
 
 echo "✅ NVM y la última versión de Node.js están instalados y configurados."
-

@@ -4,11 +4,17 @@ set -euo pipefail
 
 # Homebrew puede haberse instalado en este mismo ./run pero no estar aún en el
 # PATH de este proceso (el instalador solo lo añade a ~/.zshrc).
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+source "$LIB_DIR/brew-env.sh"
+source "$LIB_DIR/apt.sh"
 ensure_brew
 
 echo "🔧 Installing tmux via Homebrew..."
-brew install tmux
+if command -v tmux &>/dev/null; then
+  echo "✅ tmux ya está instalado."
+else
+  brew install tmux
+fi
 
 echo "📁 Creating config folder: ~/.config/tmux"
 mkdir -p ~/.config/tmux
@@ -20,7 +26,7 @@ CONFIG_PATH="$HOME/.config/tmux/tmux.conf"
 # $WAYLAND_DISPLAY depende de la sesión gráfica, no de la instalación.
 if [[ "$(uname -s)" == "Linux" ]]; then
   echo "📋 Installing clipboard tools (xclip + wl-clipboard) via apt..."
-  sudo apt-get install -y xclip wl-clipboard
+  apt_install xclip wl-clipboard
 
   CLIPBOARD_SCRIPT="$HOME/.config/tmux/clipboard.sh"
   cat > "$CLIPBOARD_SCRIPT" <<'CLIP'
@@ -35,6 +41,14 @@ CLIP
   CLIP_CMD="$CLIPBOARD_SCRIPT"
 else
   CLIP_CMD="pbcopy"
+fi
+
+# El resto de instaladores del repo respaldan lo que van a pisar; este destruía
+# las ediciones a mano sin avisar.
+if [[ -e "$CONFIG_PATH" ]]; then
+  stamp=$(date +%Y%m%d-%H%M%S)
+  echo "⚠️  $CONFIG_PATH ya existe → backup en $CONFIG_PATH.backup-$stamp"
+  cp "$CONFIG_PATH" "$CONFIG_PATH.backup-$stamp"
 fi
 
 echo "📝 Writing tmux config to $CONFIG_PATH"

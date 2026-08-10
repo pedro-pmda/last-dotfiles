@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# configs/git-config/ estaba documentado en el README como parte del sistema, pero
+# no lo instalaba ningún script: los ~/.gitconfig* reales se editaban a mano y
+# habían divergido de los del repo. Mismo patrón symlink+backup que install-zsh.
+
+# La raíz del repo se deduce del propio script, no de un ~/last-dotfiles asumido.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CONFIG_SRC="$REPO_ROOT/configs/git-config"
+
+FILES=(
+  .gitconfig
+  .gitconfig_kaizen
+  .gitconfig_zooplus
+  .gitignore_global
+)
+
+stamp=$(date +%Y%m%d-%H%M%S)
+
+for name in "${FILES[@]}"; do
+  src="$CONFIG_SRC/$name"
+  dest="$HOME/$name"
+
+  if [[ ! -f "$src" ]]; then
+    echo "❌ No se encuentra $src"
+    exit 1
+  fi
+
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    echo "⚠️  $dest existe y no es un symlink → backup en $dest.backup-$stamp"
+    mv "$dest" "$dest.backup-$stamp"
+  fi
+
+  ln -sfn "$src" "$dest"
+  echo "🔗 $dest -> $src"
+done
+
+echo "✅ Git configurado. La identidad se elige por directorio con includeIf:"
+echo "   ~/zooplus/  → $(git config -f "$CONFIG_SRC/.gitconfig_zooplus" user.email)"
+echo "   ~/kaizen/   → $(git config -f "$CONFIG_SRC/.gitconfig_kaizen" user.email)"

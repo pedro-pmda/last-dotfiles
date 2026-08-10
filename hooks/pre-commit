@@ -8,22 +8,24 @@ if [ -z "$MODIFIED" ]; then
     exit 0
 fi
 
-RES=0
-
 for file in $MODIFIED; do
     echo "🔍 Checking $file ..."
 
+    # El código de salida se captura del subshell, no dentro. Antes `RES=$?` se
+    # asignaba en la línea 23, dentro de los paréntesis, así que el padre veía
+    # siempre RES=0 y el hook nunca rechazaba un commit.
     (
         cd "$(git rev-parse --show-toplevel)" || exit 1
-        cd ui
+        cd ui || exit 1
         echo "🎨 Formatting $file with Prettier..."
-        npm run format "../$file"
-        
-        echo "🛠 Fixing lint issues in $file..."
-        npm run lint:fix "../$file" || RES=$?
-    )
+        npm run format "../$file" || exit $?
 
-    if [ $RES -eq 0 ]; then        
+        echo "🛠 Fixing lint issues in $file..."
+        npm run lint:fix "../$file" || exit $?
+    )
+    RES=$?
+
+    if [ $RES -eq 0 ]; then
         git add "$file"
         echo "✅ Added $file to commit after formatting & fixing"
     else
@@ -32,4 +34,4 @@ for file in $MODIFIED; do
     fi
 done
 
-exit $RES
+exit 0

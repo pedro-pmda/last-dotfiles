@@ -1,9 +1,10 @@
 [pull]
-  rebase = true
+	rebase = true
 [core]
 	excludesfile = ~/.gitignore_global
 [user]
 	email = pedro.palazon@zooplus.com
+	name = Pedro Palazón Martínez de Alegría
 	signingKey = ""
 [gpg]
 	program = gpg

@@ -1,26 +1,45 @@
 #!/usr/bin/env bash
 
-repokeys() {
-  # Check if the SSH agent is running
-  if ! pgrep -u "$USER" ssh-agent > /dev/null; then
-    echo "🔴 SSH agent is not running. Starting it..."
-    eval "$(ssh-agent -s)"
+set -uo pipefail
+
+# Este script se ejecuta, no se sourcea (el alias apunta al fichero). Eso importa:
+# arrancar aquí un ssh-agent con `eval "$(ssh-agent -s)"` cargaría las claves en un
+# agente cuyas variables mueren con el proceso, así que en Linux, donde no hay un
+# agente de launchd siempre en marcha, el script fingía éxito y no servía de nada.
+# Por eso ahora se usa el agente que ya haya y, si no hay, se explica qué hacer.
+# `ssh-add -l` devuelve 0 si el agente tiene claves, 1 si no tiene ninguna (pero
+# responde) y 2 si no se puede hablar con él. Solo el 2 es un problema.
+ssh-add -l &>/dev/null
+if [[ $? -eq 2 ]]; then
+  echo "🔴 No hay un ssh-agent accesible desde aquí."
+  echo "   Arráncalo en tu shell (no en este script, o morirá con él):"
+  echo '     eval "$(ssh-agent -s)"'
+  echo "   y vuelve a ejecutar repokeys."
+  exit 1
+fi
+
+echo "🔍 Searching for private keys in ~/.ssh..."
+
+# macOS guarda la passphrase en el llavero; en Linux esa opción no existe.
+add_opts=()
+[[ "$(uname -s)" == "Darwin" ]] && add_opts+=(--apple-use-keychain)
+
+added=0
+for key in "$HOME/.ssh/"*; do
+  [[ -f "$key" ]] || continue
+  filename=$(basename "$key")
+
+  # Descartar lo que no es una clave privada
+  case "$filename" in
+    *.pub|known_hosts*|authorized_keys|config|*.crt|*.cer) continue ;;
+  esac
+
+  if ssh-add "${add_opts[@]+"${add_opts[@]}"}" "$key" &>/dev/null; then
+    echo "✅ Key added: $key"
+    added=$((added + 1))
+  else
+    echo "⚠️ Failed to add key: $key"
   fi
+done
 
-  echo "🔍 Searching for private keys in ~/.ssh..."
-
-  # Find and add all private keys (not ending in .pub and not named known_hosts*)
-  for key in "$HOME/.ssh/"*; do
-    filename=$(basename "$key")
-    if [[ -f "$key" && "$filename" != *.pub && "$filename" != known_hosts* ]]; then
-      if ssh-add "$key" &>/dev/null; then
-        echo "✅ Key added: $key"
-      else
-        echo "⚠️ Failed to add key: $key"
-      fi
-    fi
-  done
-}
-
-# Call the function
-repokeys
+echo "🔑 $added claves cargadas."
