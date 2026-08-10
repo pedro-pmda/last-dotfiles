@@ -1,4 +1,10 @@
-eval "$(/opt/homebrew/bin/brew shellenv)"
+if ! command -v brew &>/dev/null; then
+  for brew_bin in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+  done
+else
+  eval "$(brew shellenv)"
+fi
 
 # Powerlevel10k instant prompt
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
@@ -74,11 +80,14 @@ eval "$(thefuck --alias)"
 export LANG=en_US.UTF-8
 
 # ─── Path Setup ─────────────────────────────────────────────────
-export PATH=$HOME/bin:/usr/local/bl:wqn:$PATH
+export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"
-[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && . "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+if command -v brew &>/dev/null; then
+  NVM_PREFIX="$(brew --prefix nvm)"
+  [ -s "$NVM_PREFIX/nvm.sh" ] && . "$NVM_PREFIX/nvm.sh"
+  [ -s "$NVM_PREFIX/etc/bash_completion.d/nvm" ] && . "$NVM_PREFIX/etc/bash_completion.d/nvm"
+fi
 
 # Added by LM Studio CLI (lms)
 export PATH="$PATH:/Users/zp2391/.cache/lm-studio/bin"
