@@ -9,8 +9,8 @@ echo "🍺 Instalando k3d (wrapper de K3s para Docker)..."
 brew install k3d
 
 echo "🐳 Verificando si Docker está corriendo..."
-if ! pgrep -f Docker.app > /dev/null; then
-  echo "⚠️  Docker no parece estar activo. Abre Docker Desktop y vuelve a intentarlo."
+if ! docker info &>/dev/null; then
+  echo "⚠️  Docker no parece estar activo. Arráncalo (Docker Desktop en macOS, 'sudo systemctl start docker' en Linux) y vuelve a intentarlo."
   exit 1
 fi
 

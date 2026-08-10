@@ -19,6 +19,14 @@ else
     exit 1
 fi
 
+# El instalador solo añade brew a ~/.zshrc; hay que ponerlo en el PATH de este
+# proceso para poder usarlo en lo que queda de script (y de este ./run).
+if ! command -v brew >/dev/null 2>&1; then
+    for brew_bin in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+    done
+fi
+
 # Verify if the installation was successful
 if command -v brew >/dev/null 2>&1; then
     echo "✅ Homebrew installed successfully."

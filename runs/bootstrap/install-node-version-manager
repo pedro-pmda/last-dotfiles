@@ -2,6 +2,14 @@
 
 set -e
 
+# Homebrew puede haberse instalado en este mismo ./run pero no estar aún en el
+# PATH de este proceso (el instalador solo lo añade a ~/.zshrc).
+if ! command -v brew &> /dev/null; then
+  for brew_bin in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+  done
+fi
+
 # Instalar NVM usando Homebrew
 brew update
 brew install nvm
@@ -9,20 +17,23 @@ brew install nvm
 # Crear directorio para NVM si no existe
 mkdir -p ~/.nvm
 
+# Prefix real de nvm en este brew (Linuxbrew, Apple Silicon o Intel Mac)
+NVM_PREFIX="$(brew --prefix nvm)"
+
 # Añadir configuración de entorno a tu shell config (por ejemplo, .zshrc o .bashrc)
 CONFIG_FILE="${HOME}/.zshrc" # cambia si usas bash
 
 if ! grep -q 'export NVM_DIR' "$CONFIG_FILE"; then
   {
     echo 'export NVM_DIR="$HOME/.nvm"'
-    echo '[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"'
-    echo '[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"'
+    echo "[ -s \"$NVM_PREFIX/nvm.sh\" ] && \\. \"$NVM_PREFIX/nvm.sh\""
+    echo "[ -s \"$NVM_PREFIX/etc/bash_completion.d/nvm\" ] && \\. \"$NVM_PREFIX/etc/bash_completion.d/nvm\""
   } >> "$CONFIG_FILE"
 fi
 
 # Cargar configuración en la sesión actual
 export NVM_DIR="$HOME/.nvm"
-source /opt/homebrew/opt/nvm/nvm.sh
+source "$NVM_PREFIX/nvm.sh"
 
 # Instalar la última versión de Node
 nvm install node

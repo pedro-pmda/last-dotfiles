@@ -2,6 +2,14 @@
 
 set -euo pipefail
 
+# Homebrew puede haberse instalado en este mismo ./run pero no estar aún en el
+# PATH de este proceso (el instalador solo lo añade a ~/.zshrc).
+if ! command -v brew &> /dev/null; then
+  for brew_bin in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+  done
+fi
+
 echo "🔧 Installing tmux via Homebrew..."
 brew install tmux
 
@@ -9,6 +17,28 @@ echo "📁 Creating config folder: ~/.config/tmux"
 mkdir -p ~/.config/tmux
 
 CONFIG_PATH="$HOME/.config/tmux/tmux.conf"
+
+# pbcopy no existe en Linux: instalamos xclip (X11) + wl-clipboard (Wayland) y
+# elegimos entre ambos en tiempo de ejecución vía un pequeño wrapper, ya que
+# $WAYLAND_DISPLAY depende de la sesión gráfica, no de la instalación.
+if [[ "$(uname -s)" == "Linux" ]]; then
+  echo "📋 Installing clipboard tools (xclip + wl-clipboard) via apt..."
+  sudo apt-get install -y xclip wl-clipboard
+
+  CLIPBOARD_SCRIPT="$HOME/.config/tmux/clipboard.sh"
+  cat > "$CLIPBOARD_SCRIPT" <<'CLIP'
+#!/usr/bin/env sh
+if [ -n "$WAYLAND_DISPLAY" ]; then
+  wl-copy
+else
+  xclip -selection clipboard -i
+fi
+CLIP
+  chmod +x "$CLIPBOARD_SCRIPT"
+  CLIP_CMD="$CLIPBOARD_SCRIPT"
+else
+  CLIP_CMD="pbcopy"
+fi
 
 echo "📝 Writing tmux config to $CONFIG_PATH"
 
@@ -23,7 +53,7 @@ bind-key C-a send-prefix
 
 set-window-option -g mode-keys vi
 bind -T copy-mode-vi v send-keys -X begin-selection
-bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel 'pbcopy'
+bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel '$CLIP_CMD'
 
 bind -r h select-pane -L
 bind -r j select-pane -D
@@ -33,5 +63,5 @@ bind -r l select-pane -R
 bind r source-file ~/.config/tmux/tmux.conf \\; display-message "tmux.conf reloaded"
 EOF
 
-echo "✅ Tmux installed and configured for macOS!"
+echo "✅ Tmux installed and configured!"
 

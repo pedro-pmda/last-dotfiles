@@ -1,2 +1,29 @@
 #!/usr/bin/env bash
+
+set -euo pipefail
+
+# Homebrew puede haberse instalado en este mismo ./run pero no estar aún en el
+# PATH de este proceso (el instalador solo lo añade a ~/.zshrc).
+if ! command -v brew &> /dev/null; then
+  for brew_bin in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+  done
+fi
+
+echo "📦 Instalando Neovim..."
 brew install neovim
+
+# La raíz del repo se deduce del propio script: el symlink debe apuntar al clon real,
+# viva donde viva, no a un ~/last-dotfiles asumido.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CONFIG_SRC="$REPO_ROOT/configs/nvim-config"
+CONFIG_DEST="$HOME/.config/nvim"
+
+mkdir -p "$HOME/.config"
+if [[ -e "$CONFIG_DEST" && ! -L "$CONFIG_DEST" ]]; then
+  stamp=$(date +%Y%m%d-%H%M%S)
+  echo "⚠️  $CONFIG_DEST existe y no es un symlink → backup en $CONFIG_DEST.backup-$stamp"
+  mv "$CONFIG_DEST" "$CONFIG_DEST.backup-$stamp"
+fi
+ln -sfn "$CONFIG_SRC" "$CONFIG_DEST"
+echo "🔗 $CONFIG_DEST -> $CONFIG_SRC"

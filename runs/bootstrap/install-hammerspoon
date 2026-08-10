@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# Guard: este script solo tiene sentido en macOS (Hammerspoon no existe en Linux)
+[[ "$(uname -s)" == "Darwin" ]] || { echo "⏭️  Solo macOS — nada que hacer en Linux"; exit 0; }
+
 # La raíz del repo se deduce del propio script: el symlink debe apuntar al clon real,
 # viva donde viva, no a un ~/last-dotfiles asumido.
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)

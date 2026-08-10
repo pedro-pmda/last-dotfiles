@@ -6,6 +6,12 @@ echo "🍺 [1/8] Verificando instalación de Homebrew..."
 if ! command -v brew &> /dev/null; then
   echo "📦 Instalando Homebrew..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  # El instalador solo añade brew a ~/.zshrc; hay que ponerlo en el PATH de
+  # este proceso para poder usarlo en lo que queda de script.
+  for brew_bin in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+  done
 else
   echo "✅ Homebrew ya está instalado."
 fi
@@ -13,7 +19,13 @@ fi
 echo "🔍 [2/8] Verificando instalación de Zsh..."
 if ! command -v zsh &> /dev/null; then
   echo "📦 Instalando Zsh..."
-  brew install zsh
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    # apt registra el binario en /etc/shells automáticamente; el zsh de Linuxbrew no,
+    # y eso hace que chsh lo rechace más abajo.
+    sudo apt-get install -y zsh
+  else
+    brew install zsh
+  fi
 else
   echo "✅ Zsh ya está instalado."
 fi
@@ -28,82 +40,21 @@ curl -L git.io/antigen > ~/.antigen.zsh
 echo "☸️ [5/8] Clonando kube-ps1..."
 git clone https://github.com/jonmosco/kube-ps1.git ~/.kube-ps1 || echo "-> kube-ps1 ya existe."
 
-echo "📝 [6/8] Generando nuevo ~/.zshrc..."
+echo "🔗 [6/8] Enlazando ~/.zshrc a configs/zsh-config/.zshrc..."
 
-cat > ~/.zshrc <<'EOF'
-eval "$(/opt/homebrew/bin/brew shellenv)"
+# La raíz del repo se deduce del propio script: el symlink debe apuntar al clon real,
+# viva donde viva, no a un ~/last-dotfiles asumido.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CONFIG_SRC="$REPO_ROOT/configs/zsh-config/.zshrc"
+CONFIG_DEST="$HOME/.zshrc"
 
-# Powerlevel10k instant prompt
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+if [[ -e "$CONFIG_DEST" && ! -L "$CONFIG_DEST" ]]; then
+  stamp=$(date +%Y%m%d-%H%M%S)
+  echo "⚠️  $CONFIG_DEST existe y no es un symlink → backup en $CONFIG_DEST.backup-$stamp"
+  mv "$CONFIG_DEST" "$CONFIG_DEST.backup-$stamp"
 fi
-
-# ─── Antigen Setup ──────────────────────────────────────────────
-source $HOME/.antigen.zsh
-antigen use oh-my-zsh
-
-# ─── Temas ──────────────────────────────────────────────────────
-antigen theme romkatv/powerlevel10k
-
-# ─── Plugins Zsh Core ───────────────────────────────────────────
-antigen bundle git
-antigen bundle docker
-antigen bundle node
-antigen bundle golang
-antigen bundle command-not-found
-antigen bundle zsh-users/zsh-autosuggestions
-antigen bundle zsh-users/zsh-completions
-antigen bundle zsh-users/zsh-history-substring-search
-antigen bundle rupa/z
-antigen bundle zsh-users/zsh-syntax-highlighting
-
-antigen apply
-
-
-# ─── kube-ps1 (Kubernetes context) ──────────────────────────────
-if [[ -f $HOME/.kube-ps1/kube-ps1.sh ]]; then
-  source $HOME/.kube-ps1/kube-ps1.sh
-  PROMPT='$(kube_ps1)'$PROMPT
-fi
-
-# ─── Historial Zsh ──────────────────────────────────────────────
-HISTFILE=~/.zsh_history
-HISTSIZE=10000
-SAVEHIST=10000
-setopt INC_APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_FIND_NO_DUPS EXTENDED_HISTORY
-
-# ─── Alias útiles ───────────────────────────────────────────────
-alias k='kubectl'
-alias kgp='kubectl get pods'
-alias kaf='kubectl apply -f'
-alias kn='kubens'
-alias kc='kubectx'
-alias gst='git status'
-alias gl='git log --oneline --graph --decorate'
-alias cls='clear'
-alias tf='terraform'
-alias repokeys="$HOME/last-dotfiles/runs/access/./repokeys"
-alias run="$HOME/last-dotfiles/run"
-
-# ─── The Fuck ───────────────────────────────────────────────────
-eval "$(thefuck --alias)"
-
-# ─── Powerlevel10k config ───────────────────────────────────────
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
-# ─── Configuración de fzf ───────────────────────────────────────
-[[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
-
-# ─── Language Environment ───────────────────────────────────────
-export LANG=en_US.UTF-8
-
-# ─── Path Setup ─────────────────────────────────────────────────
-export PATH=$HOME/bin:/usr/local/bl:wqn:$PATH
-
-export XDG_CONFIG_HOME="$HOME/.config"
-export EDITOR="nvim"
-
-EOF
+ln -sfn "$CONFIG_SRC" "$CONFIG_DEST"
+echo "🔗 $CONFIG_DEST -> $CONFIG_SRC"
 
 echo "📤 [7/8] Comprobando si Zsh es tu shell por defecto..."
 
