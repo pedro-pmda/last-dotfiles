@@ -1,46 +1,52 @@
 # CLAUDE.md
 
-Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bash + Lua — no build step, no package manager, no tests. `README.md` documents every script for humans; this file is the working context.
+Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bash + Lua — no build step, no package manager. The only tests are `configs/wm-linux-config/test/` (lua-wm only runs on Linux, so it's the sole way to verify it from a Mac). `README.md` documents every script for humans; this file is the working context.
 
 ## Map
 
 | Path | What it is |
 |---|---|
-| `run` | Entrypoint. Finds every executable under `runs/` and runs it. |
-| `runs/bootstrap/` | Installers: zsh, nvim, tmux, docker, hammerspoon (macOS), wm-linux (Linux), homebrew, nvm, git-hooks |
+| `run` | Entrypoint. No filter → `runs/bootstrap/` in `BOOTSTRAP_ORDER`. With a filter → substring match over all of `runs/`. |
+| `runs/lib/` | Sourced helpers, **not executable** so `run` skips them: `brew-env.sh` (`ensure_brew`), `apt.sh` (`require_apt`, `apt_install`) |
+| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, git-config, hammerspoon (macOS), wm-linux (Linux) |
 | `runs/infra/` | `install-k3s` (k3d cluster), `switch-cluster` (kubectl context) |
-| `runs/access/` | `repokeys` — loads every private key in `~/.ssh` into ssh-agent |
-| `runs/utils/` | `ready-tmux`, `tmux-sessionizer` |
+| `runs/access/` | `repokeys` — loads every private key in `~/.ssh` into an existing ssh-agent |
+| `runs/utils/` | `ready-tmux`, `tmux-sessionizer`, `install-git-hooks` |
 | `configs/` | Files copied to their real homes: `hammerspoon-config/` (macOS), `wm-linux-config/` (Linux), `nvim-config/`, `zsh-config/`, `git-config/`, `tmux-examples/` |
 | `hooks/` | Git hooks installed into a **target** repo by `install-git-hooks`. zooplus conventions (`ZOOB-*` Jira IDs, `MAJOR\|MINOR\|REVISION \| ...`, `ui/` Prettier+ESLint). Not meant to run on this repo. |
 
 ## Running tasks
 
 ```bash
-./run                # everything under runs/
-./run tmux           # only scripts whose path matches the substring
+./run                # runs/bootstrap only, in BOOTSTRAP_ORDER
+./run tmux           # only scripts whose path matches the substring, across all of runs/
 ./run --dry          # print, execute nothing
 ./run tmux --dry
 ```
 
 - `--dry` is honored by `run` only. Installers have no dry-run — `./run <filter>` without `--dry` really does `brew install`.
-- Scripts must be `chmod +x` or `run` silently ignores them.
+- Scripts must be `chmod +x` or `run` silently ignores them. `runs/lib/` relies on this.
+- The bootstrap order in `run` is a **contract** (`install-home-brew` first). `find` doesn't sort, and getting this wrong meant brew wasn't on `PATH` yet for whoever ran next — different per OS and per filesystem.
+- Anything imperative or interactive belongs outside `runs/bootstrap/`, so a bare `./run` can't fire it.
+- A failing script doesn't stop the rest; `run` summarises failures and exits 1.
 
 ## Conventions
 
 - Bash: `#!/usr/bin/env bash` + `set -euo pipefail`, emoji-prefixed `echo` progress lines.
 - Messages mix Spanish and English — **match the file you're editing**, don't normalize.
 - Installers must be idempotent: check `command -v` / existing dirs, don't fail on re-run.
-- Homebrew assumed on both OSes (Linuxbrew on Linux). Resolve its prefix dynamically — `brew shellenv` / `$(brew --prefix <formula>)` — never hardcode `/opt/homebrew` or `/home/linuxbrew/.linuxbrew`.
+- Homebrew assumed on both OSes (Linuxbrew on Linux). **Never hardcode a prefix**: in scripts `source runs/lib/brew-env.sh` and call `ensure_brew`; in `.zshrc` use `$HOMEBREW_PREFIX` (exported by `brew shellenv`) rather than forking `brew --prefix` on every shell start. The candidate list lives in one place now — `.zshrc` keeps an inline copy only because it can't source a path inside the repo.
+- System packages on Linux go through `runs/lib/apt.sh`, never a bare `sudo apt-get install`: it does the `apt-get update` that was missing and fails readably on non-Debian.
+- Prefer POSIX over GNU-isms in anything that runs on both: `find -perm -111` not `/111`, `command -v` not `which`, `grep -q -E` not `--quiet --extended-regexp`. macOS ships BSD userland and bash 3.2 — no `mapfile`, no `declare -A`, and iterating `"${arr[@]}"` on an empty array under `set -u` is an error, so guard with a length check.
 - Cross-platform scripts follow one of two idioms, matching `install-home-brew` / `install-wm-linux`:
-  1. **Branch inside one script** with `[[ "$(uname -s)" == "Linux" ]]` when both OSes need real (if different) logic — e.g. `install-docker`, `install-zsh`, `install-tmux`, `install-k3s`.
+  1. **Branch inside one script** with `[[ "$(uname -s)" == "Linux" ]]` when both OSes need real (if different) logic — e.g. `install-docker`, `install-zsh`, `install-tmux`. (`install-k3s` has no `uname` at all: k3d and Docker behave the same either way.)
   2. **Guard-and-skip, one script per OS** when the tool itself only exists on one platform — e.g. `install-hammerspoon` (Darwin-only) / `install-wm-linux` (Linux-only), a symmetric pair.
-- Several scripts assume the repo is cloned at `~/last-dotfiles`.
+- Every script derives the repo root from `${BASH_SOURCE[0]}`. Only the `.zshrc` aliases hardcode `~/last-dotfiles`.
 - Commits: Conventional Commits + emoji — `feat(hammerspoon): 🎯 update config layout`, `fix(zsh): 🐛 ...`.
 
 ## Hammerspoon
 
-`configs/hammerspoon-config/init.lua` is the whole window/hotkey system: F1–F12 launch or focus apps, `Shift+F11` Kaizen mode, `Shift+F12` reload, `Shift+F6` emoji picker. On startup it runs Work mode. Layouts (app, `"1/3"`-style width/height fractions, position) and browser tab sets live in the config table, never in `init.lua`.
+`configs/hammerspoon-config/init.lua` is the whole window/hotkey system: F1–F12 launch or focus apps, `F11` Work mode, `F12` reset layout, `Shift+F11` Kaizen mode, `Shift+F12` reload, `Shift+F10` emoji picker (per `mac-work.lua` — each profile binds its own keys). On startup it runs Work mode. Layouts (app, `"1/3"`-style width/height fractions, position) and browser tab sets live in the config table, never in `init.lua`.
 
 `init.lua` does `require("app_config")`. `app_config.lua` is not in the repo — it's a symlink into `configs/hammerspoon-config/profiles/`, one self-contained file per machine (`mac-work.lua`, `mac-personal.lua`). `install-hammerspoon` lists them, asks which one, and symlinks both `init.lua` and the chosen profile into `~/.hammerspoon`. A new machine is a new `.lua` in `profiles/`; keep new options in sync across all of them.
 
@@ -49,6 +55,8 @@ Since they're symlinks, editing a profile edits the live config — no re-instal
 Apps outside `/Applications` need an entry in `appPaths` (only `mac-work.lua` has one today) — `hs.application.launchOrFocus` won't find them.
 
 `install-hammerspoon` guard-skips on Linux (`uname -s != Darwin`) — Hammerspoon itself is macOS-only.
+
+The **app-name vocabulary is per-OS and can't be shared**: macOS uses `.app` names (plus `appIds` bundle IDs), Linux uses the `.desktop` `Name=` matched against `WM_CLASS`. They coincide by luck for vendor apps and diverge otherwise — `IntelliJ IDEA Ultimate` (Linux) vs `IntelliJ IDEA` (macOS).
 
 ### Layout schema
 
@@ -62,6 +70,14 @@ A layout entry is `{ name, position, width, vertical, height, screen? }`. Fracti
 
 `configs/wm-linux-config/init.lua` is the Hammerspoon equivalent for Linux: same `app_config.lua`-symlink-per-profile pattern (`profiles/linux-personal.lua` today, no `linux-work.lua` yet), but running as a `lua5.3` daemon via `lgi`/GTK, `Wnck` (window management), `Keybinder` (hotkeys) and `libnotify`, since there's no Hammerspoon-style accessibility API on Linux. `install-wm-linux` guard-skips on macOS, installs the apt packages, symlinks the config, and registers both a `systemd --user` service and an XDG autostart entry (Cinnamon/LightDM don't reliably fire `graphical-session.target` on login, so autostart is the primary boot path — systemd is for manual restart/logs). Reload after editing a profile with `systemctl --user restart lua-wm`; logs via `journalctl --user -u lua-wm -f`.
 
+Parity with Hammerspoon: same `functionKeys` schema, same actions (`WORK_MODE`, `KAIZEN_MODE`, `RESET_LAYOUT`, `EMOJI`, `RELOAD_WM`≡`RELOAD_HAMMERSPOON`) and the same geometry code. Still unimplemented: `appIds`/`appPaths` (macOS concepts) and `screen = "secondary"`.
+
+The tiling decision is taken **in locals, per window**, exactly as on macOS — never written into the profile table. That's the fix for a bug where mutating it lost the original fractions until the service was restarted. The threshold is `minWidthForTiling` by geometry; `xrandr` is only a fallback for when Gdk won't give a workarea.
+
+The Lua interpreter and `lgi`'s multiarch triplet are discovered in `install-wm-linux` (`dpkg-architecture` / `gcc -print-multiarch`): hardcoding `x86_64-linux-gnu` meant the daemon never came up on arm64.
+
+`configs/wm-linux-config/test/suite.sh` stubs `lgi` and runs the real `init.lua` under `luajit` from macOS. If you touch `init.lua`, run the suite against the previous version too and check that it **fails**.
+
 ## tmux
 
 `tmux-sessionizer` fzf-picks a dir under `~/kaizen` or `~/zooplus`, creates/attaches a session named after it, and runs `ready-tmux` inside. `ready-tmux` executes `./.ready-tmux` from the project dir if present, else `~/.ready-tmux` — the per-project layout hook. Templates in `configs/tmux-examples/`.
@@ -74,6 +90,8 @@ Same symlink idiom as Hammerspoon, no profiles: `install-nvim` symlinks `configs
 
 Don't "fix" these silently — they're documented in `README.md`; mention them if a change touches them.
 
-- `hooks/commit-msg` is inert: `head -n 1 ""` lost its `$1` and the guard reads `if [ 0 -ne 0 ]`.
-- `switch-cluster` under `set -u` dies with "unbound variable" when called with no argument, before its own error message.
-- `install-git-hooks` must be run from inside the target repo (it writes to `./.git/hooks`), so `./run git-hooks` from here installs the zooplus hooks onto *this* repo.
+- `install-git-hooks` must be run from inside the target repo (it writes to that repo's hooks dir). It lives in `runs/utils/` so a bare `./run` won't fire it.
+- The generated `~/.config/tmux/tmux.conf` bakes the clipboard command in at install time, so it isn't portable between machines — re-run `./run tmux` per machine.
+- `install-zsh` installs `autojump` but nothing sources it; the `rupa/z` bundle already covers it.
+- lua-wm ignores `screen = "secondary"`.
+- Non-Debian Linux is unsupported by design: `runs/lib/apt.sh` exits with a message.
