@@ -20,6 +20,8 @@ BOOTSTRAP_ORDER=(
   install-tmux
   install-docker
   install-git-config
+  install-ghostty
+  install-cli-configs
   install-hammerspoon
   install-wm-linux
 )

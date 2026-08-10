@@ -13,6 +13,8 @@ source "$LIB_DIR/apt.sh"
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 CONFIG_SRC="$REPO_ROOT/configs/zsh-config/.zshrc"
 CONFIG_DEST="$HOME/.zshrc"
+P10K_SRC="$REPO_ROOT/configs/zsh-config/.p10k.zsh"
+P10K_DEST="$HOME/.p10k.zsh"
 
 echo "🍺 [1/7] Verificando instalación de Homebrew..."
 if ! ensure_brew --optional; then
@@ -23,17 +25,26 @@ else
   echo "✅ Homebrew ya está instalado."
 fi
 
-# El symlink va antes de instalar nada: es lo único que este script no puede
+# Los symlinks van antes de instalar nada: es lo único que este script no puede
 # dejar a medias. Antes era el paso 6 de 8, así que un fallo de brew en el paso 3
 # abortaba con set -e y dejaba la máquina sin ~/.zshrc enlazado.
-echo "🔗 [2/7] Enlazando ~/.zshrc a configs/zsh-config/.zshrc..."
-if [[ -e "$CONFIG_DEST" && ! -L "$CONFIG_DEST" ]]; then
-  stamp=$(date +%Y%m%d-%H%M%S)
-  echo "⚠️  $CONFIG_DEST existe y no es un symlink → backup en $CONFIG_DEST.backup-$stamp"
-  mv "$CONFIG_DEST" "$CONFIG_DEST.backup-$stamp"
-fi
-ln -sfn "$CONFIG_SRC" "$CONFIG_DEST"
-echo "🔗 $CONFIG_DEST -> $CONFIG_SRC"
+echo "🔗 [2/7] Enlazando ~/.zshrc y ~/.p10k.zsh..."
+stamp=$(date +%Y%m%d-%H%M%S)
+
+link() { # link <origen> <destino>
+  local src="$1" dest="$2"
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    echo "⚠️  $dest existe y no es un symlink → backup en $dest.backup-$stamp"
+    mv "$dest" "$dest.backup-$stamp"
+  fi
+  ln -sfn "$src" "$dest"
+  echo "🔗 $dest -> $src"
+}
+
+link "$CONFIG_SRC" "$CONFIG_DEST"
+# El tema del prompt. Sin esto, .zshrc lo sourcea pero no existe en una máquina
+# nueva, así que p10k arranca su asistente en vez de tu prompt.
+link "$P10K_SRC" "$P10K_DEST"
 
 echo "🔍 [3/7] Verificando instalación de Zsh..."
 if ! command -v zsh &> /dev/null; then

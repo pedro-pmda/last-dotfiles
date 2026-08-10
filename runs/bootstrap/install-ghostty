@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: 👻 Ghostty — terminal (config compartida entre macOS y Linux)
+
+set -euo pipefail
+
+# La raíz del repo se deduce del propio script, no de un ~/last-dotfiles asumido.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CONFIG_SRC="$REPO_ROOT/configs/ghostty-config/config"
+CONFIG_DEST="$HOME/.config/ghostty/config"
+
+# Ruta propia de macOS. Ghostty lee las dos, pero esta tiene prioridad sobre la
+# XDG en las claves que coincidan, así que hay que apartarla o seguiría mandando
+# ella en silencio (comprobado: un font-size en la XDG no se aplicaba).
+MACOS_CONFIG="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
+
+stamp=$(date +%Y%m%d-%H%M%S)
+
+# --- 1. Instalar Ghostty ------------------------------------------------------
+if command -v ghostty &>/dev/null || [[ -d "/Applications/Ghostty.app" ]]; then
+  echo "✅ Ghostty ya está instalado."
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
+  echo "📦 Instalando Ghostty con Homebrew..."
+  brew install --cask ghostty
+else
+  # En Debian/Ubuntu no hay paquete oficial: se descarga de las releases o se
+  # compila. No se intenta adivinar; la config se enlaza igual y queda lista.
+  echo "⚠️  Ghostty no está instalado y en Linux no hay paquete apt oficial."
+  echo "    Instálalo desde https://ghostty.org/docs/install/binary y vuelve a ejecutarlo."
+  echo "    La config se enlaza de todas formas."
+fi
+
+# --- 2. Enlazar la config -----------------------------------------------------
+mkdir -p "$(dirname "$CONFIG_DEST")"
+
+if [[ -e "$CONFIG_DEST" && ! -L "$CONFIG_DEST" ]]; then
+  echo "⚠️  $CONFIG_DEST existe y no es un symlink → backup en $CONFIG_DEST.backup-$stamp"
+  mv "$CONFIG_DEST" "$CONFIG_DEST.backup-$stamp"
+fi
+ln -sfn "$CONFIG_SRC" "$CONFIG_DEST"
+echo "🔗 $CONFIG_DEST -> $CONFIG_SRC"
+
+# --- 3. Apartar la config de Application Support (solo macOS) -----------------
+if [[ "$(uname -s)" == "Darwin" && -e "$MACOS_CONFIG" ]]; then
+  if [[ -L "$MACOS_CONFIG" ]]; then
+    echo "🔗 La config de Application Support ya es un symlink, se deja como está."
+  else
+    echo "⚠️  Apartando la config de Application Support, que tendría prioridad:"
+    echo "    $MACOS_CONFIG → .backup-$stamp"
+    mv "$MACOS_CONFIG" "$MACOS_CONFIG.backup-$stamp"
+  fi
+fi
+
+echo "✅ Ghostty configurado. Comprueba lo que está aplicando con:"
+echo "   ghostty +show-config"

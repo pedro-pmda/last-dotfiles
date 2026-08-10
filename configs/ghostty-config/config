@@ -1,0 +1,15 @@
+# Ghostty — enlazado desde configs/ghostty-config/
+#
+# Esta ruta ($XDG_CONFIG_HOME/ghostty/config) funciona en macOS y en Linux, así
+# que el mismo fichero sirve en los dos. Ojo en macOS: Ghostty lee TAMBIÉN
+# ~/Library/Application Support/com.mitchellh.ghostty/config y esa gana en las
+# claves que coincidan, por lo que install-ghostty la aparta con un backup. Si
+# vuelve a aparecer, es que algo la ha recreado y estará pisando esto en silencio.
+#
+# Ver todas las opciones con sus valores por defecto y su documentación:
+#   ghostty +show-config --default --docs
+# Ver la config efectiva ahora mismo:
+#   ghostty +show-config
+
+font-size = 16
+theme = Catppuccin Latte

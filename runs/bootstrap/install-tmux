@@ -11,6 +11,12 @@ source "$LIB_DIR/brew-env.sh"
 source "$LIB_DIR/apt.sh"
 ensure_brew
 
+# La raíz del repo se deduce del propio script: el symlink debe apuntar al clon real,
+# viva donde viva, no a un ~/last-dotfiles asumido.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CONFIG_SRC="$REPO_ROOT/configs/tmux-config"
+CONFIG_DEST="$HOME/.config/tmux"
+
 echo "🔧 Installing tmux via Homebrew..."
 if command -v tmux &>/dev/null; then
   echo "✅ tmux ya está instalado."
@@ -18,63 +24,38 @@ else
   brew install tmux
 fi
 
-echo "📁 Creating config folder: ~/.config/tmux"
-mkdir -p ~/.config/tmux
-
-CONFIG_PATH="$HOME/.config/tmux/tmux.conf"
-
-# pbcopy no existe en Linux: instalamos xclip (X11) + wl-clipboard (Wayland) y
-# elegimos entre ambos en tiempo de ejecución vía un pequeño wrapper, ya que
-# $WAYLAND_DISPLAY depende de la sesión gráfica, no de la instalación.
+# pbcopy no existe en Linux. Se instalan los dos (X11 y Wayland) y clipboard.sh
+# elige en cada yank, porque $WAYLAND_DISPLAY depende de la sesión gráfica en la
+# que estés y no de la instalación.
 if [[ "$(uname -s)" == "Linux" ]]; then
   echo "📋 Installing clipboard tools (xclip + wl-clipboard) via apt..."
   apt_install xclip wl-clipboard
-
-  CLIPBOARD_SCRIPT="$HOME/.config/tmux/clipboard.sh"
-  cat > "$CLIPBOARD_SCRIPT" <<'CLIP'
-#!/usr/bin/env sh
-if [ -n "$WAYLAND_DISPLAY" ]; then
-  wl-copy
-else
-  xclip -selection clipboard -i
-fi
-CLIP
-  chmod +x "$CLIPBOARD_SCRIPT"
-  CLIP_CMD="$CLIPBOARD_SCRIPT"
-else
-  CLIP_CMD="pbcopy"
 fi
 
-# El resto de instaladores del repo respaldan lo que van a pisar; este destruía
-# las ediciones a mano sin avisar.
-if [[ -e "$CONFIG_PATH" ]]; then
-  stamp=$(date +%Y%m%d-%H%M%S)
-  echo "⚠️  $CONFIG_PATH ya existe → backup en $CONFIG_PATH.backup-$stamp"
-  cp "$CONFIG_PATH" "$CONFIG_PATH.backup-$stamp"
-fi
+echo "📁 Creating config folder: $CONFIG_DEST"
+mkdir -p "$CONFIG_DEST"
 
-echo "📝 Writing tmux config to $CONFIG_PATH"
+stamp=$(date +%Y%m%d-%H%M%S)
 
-cat > "$CONFIG_PATH" <<EOF
-set -g default-terminal "tmux-256color"
-set -s escape-time 0
-set -g base-index 1
+link() { # link <origen> <destino>
+  local src="$1" dest="$2"
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    echo "⚠️  $dest existe y no es un symlink → backup en $dest.backup-$stamp"
+    mv "$dest" "$dest.backup-$stamp"
+  fi
+  ln -sfn "$src" "$dest"
+  echo "🔗 $dest -> $src"
+}
 
-unbind C-b
-set-option -g prefix C-a
-bind-key C-a send-prefix
+# Antes este script generaba tmux.conf con un heredoc, horneando dentro el comando
+# de portapapeles del OS. Eso lo convertía en el único config que no se podía
+# editar desde el repo, y el fichero resultante no servía en la otra máquina.
+link "$CONFIG_SRC/tmux.conf"    "$CONFIG_DEST/tmux.conf"
+link "$CONFIG_SRC/clipboard.sh" "$CONFIG_DEST/clipboard.sh"
 
-set-window-option -g mode-keys vi
-bind -T copy-mode-vi v send-keys -X begin-selection
-bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel '$CLIP_CMD'
-
-bind -r h select-pane -L
-bind -r j select-pane -D
-bind -r k select-pane -U
-bind -r l select-pane -R
-
-bind r source-file ~/.config/tmux/tmux.conf \\; display-message "tmux.conf reloaded"
-EOF
+# El hook global de layout, el que usa `ready-tmux` cuando el proyecto no trae su
+# propio .ready-tmux. Estaba copiado a mano; enlazado se puede editar desde el repo.
+link "$REPO_ROOT/configs/tmux-examples/.ready-tmux-default" "$HOME/.ready-tmux"
 
 echo "✅ Tmux installed and configured!"
-
+echo "   Recarga con: tmux source-file ~/.config/tmux/tmux.conf   (o prefix + r)"
