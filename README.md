@@ -1,6 +1,8 @@
 # 🧰 last-dotfiles
 
-Personal dev-environment bootstrap for macOS and Linux: install scripts, dotfiles and window-management config, all plain Bash + Lua. No build step, no package manager. The only tests are in `configs/wm-linux-config/test/`, and they exist because that code only runs on Linux.
+Personal dev-environment bootstrap for macOS and Linux: install scripts, dotfiles and window-management config, all plain Bash + Lua. No build step, no package manager. There are two small test suites, both for
+things that can't be checked by reading: `configs/wm-linux-config/test/` (Linux-only code, run from
+a Mac) and `test/run-interactive-test.py` (the `-i` menu, driven through a real pty).
 
 Inspired by [Frontend Masters — Developer Productivity 2](https://frontendmasters.com/courses/developer-productivity/).
 
@@ -28,9 +30,55 @@ cd ~/last-dotfiles
 
 ```bash
 ./run                # the whole bootstrap, in order
+./run -i             # interactive picker over everything under runs/
 ./run tmux           # only scripts whose path matches "tmux"
 ./run --dry          # print what would run, execute nothing
-./run tmux --dry     # combine both
+./run -i --dry       # pick in the menu, then only print
+./run --help
+```
+
+### `-i` — interactive mode
+
+Like `--dry` in that it shows you the list first, except you choose from it. Unlike the default
+run, it covers **every** folder under `runs/`, not just `bootstrap`, and it **only lists what
+applies to the machine you're on** — `install-hammerspoon` doesn't show up on Linux, `install-wm-linux`
+doesn't show up on macOS, and a footer tells you what was hidden.
+
+```
+   ██╗      █████╗ ███████╗████████╗
+   ██║     ██╔══██╗██╔════╝╚══██╔══╝
+   ██║     ███████║███████╗   ██║
+   ██║     ██╔══██║╚════██║   ██║
+   ███████╗██║  ██║███████║   ██║
+   ╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝
+   · d o t f i l e s ·  🍎 macOS
+
+  runs/bootstrap/
+   ● 2) install-docker                   🐳 Docker Desktop (macOS) / Engine (Linux)
+   ○ 3) install-git-config               🔧 ~/.gitconfig* con identidad por directorio
+   ● 4) install-hammerspoon              🎯 Hammerspoon — gestión de ventanas y hotkeys
+   ...
+
+  ⏭️  Ocultos por no ser de macOS: install-wm-linux
+
+  1-14 alternar   a todos   n ninguno   b solo bootstrap
+  ↵  ejecutar    q salir
+
+  ▶ Seleccionados: 2  ›
+```
+
+Type numbers (`3`, or `1 3 5`, or `1,3,5`) to toggle, `a`/`n` for all/none, `b` for just the
+bootstrap set, Enter to run, `q` to quit. Whatever you pick still runs in `BOOTSTRAP_ORDER`, so
+selecting Homebrew and Neovim together installs Homebrew first regardless of the order you ticked
+them.
+
+**How a script declares itself.** `run` doesn't hardcode any of this — it reads two headers from
+each script, so adding a new one never means editing `run`:
+
+```bash
+#!/usr/bin/env bash
+# run-os: darwin        # darwin | linux | any   (default: any)
+# run-desc: 🎯 Hammerspoon — gestión de ventanas y hotkeys
 ```
 
 **With no filter it runs `runs/bootstrap/` only**, in this order — which is a contract, not
@@ -58,6 +106,7 @@ directory's repo.
   That's how `runs/lib/` stays out: it holds sourced helpers, not runnable scripts.
 - `--dry` is only understood by `run` itself. Everything else runs for real.
 - A failing script no longer stops the rest; failures are summarised at the end and `run` exits 1.
+- `-i` refuses to run without a terminal, rather than hanging on a menu nobody can answer.
 
 ### `runs/lib/`
 

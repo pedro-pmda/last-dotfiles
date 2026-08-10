@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# run-os: any
+# run-desc: 🪟 tmux + su config (clipboard según el OS)
 
 set -euo pipefail
 

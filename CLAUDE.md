@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bash + Lua — no build step, no package manager. The only tests are `configs/wm-linux-config/test/` (lua-wm only runs on Linux, so it's the sole way to verify it from a Mac). `README.md` documents every script for humans; this file is the working context.
+Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bash + Lua — no build step, no package manager. Two test suites, both for things you can't verify by reading: `configs/wm-linux-config/test/` (lua-wm only runs on Linux) and `test/run-interactive-test.py` (drives `./run -i` through a real pty). `README.md` documents every script for humans; this file is the working context.
 
 ## Map
 
@@ -19,9 +19,10 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 
 ```bash
 ./run                # runs/bootstrap only, in BOOTSTRAP_ORDER
+./run -i             # interactive picker over all of runs/, filtered by OS
 ./run tmux           # only scripts whose path matches the substring, across all of runs/
 ./run --dry          # print, execute nothing
-./run tmux --dry
+./run -i --dry
 ```
 
 - `--dry` is honored by `run` only. Installers have no dry-run — `./run <filter>` without `--dry` really does `brew install`.
@@ -29,6 +30,13 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 - The bootstrap order in `run` is a **contract** (`install-home-brew` first). `find` doesn't sort, and getting this wrong meant brew wasn't on `PATH` yet for whoever ran next — different per OS and per filesystem.
 - Anything imperative or interactive belongs outside `runs/bootstrap/`, so a bare `./run` can't fire it.
 - A failing script doesn't stop the rest; `run` summarises failures and exits 1.
+- **Every script declares itself in its own header** — `run -i` reads these, so a new script never means editing `run`:
+  ```bash
+  # run-os: darwin | linux | any     (default: any — controls whether -i lists it here)
+  # run-desc: 🎯 Qué hace, una línea
+  ```
+  Keep `run-os` honest: it's what makes the menu show `install-hammerspoon` on macOS and `install-wm-linux` on Linux. The in-script `uname` guard stays too — the header controls the menu, the guard protects a direct call.
+- Selections from `-i` still run through `BOOTSTRAP_ORDER`, so picking Homebrew and Neovim installs Homebrew first whatever order you ticked them.
 
 ## Conventions
 

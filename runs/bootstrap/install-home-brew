@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# run-os: any
+# run-desc: 🍺 Homebrew — gestor de paquetes (hazlo primero)
 
 # Detect operating system
 OS="$(uname -s)"

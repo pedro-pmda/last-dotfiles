@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# run-os: any
+# run-desc: 🪝 Instalar los hooks de zooplus en el repo actual
 
 set -euo pipefail
 

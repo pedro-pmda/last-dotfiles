@@ -5,6 +5,7 @@ set -euo pipefail
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 filter=""
 dry="0"
+interactive="0"
 
 cd "$script_dir" || exit 1
 
@@ -23,18 +24,60 @@ BOOTSTRAP_ORDER=(
   install-wm-linux
 )
 
-# Parsear argumentos
+usage() {
+  cat <<'HELP'
+Uso: ./run [filtro] [-i|--interactive] [--dry]
+
+  ./run                 Bootstrap completo, en orden (solo runs/bootstrap)
+  ./run -i              Menú interactivo: elige qué instalar de todo runs/
+  ./run tmux            Solo lo que casa con "tmux", en todo runs/
+  ./run --dry           Imprime lo que haría, sin ejecutar nada
+  ./run -i --dry        Elige en el menú y luego solo imprime
+
+El menú de -i solo muestra lo que aplica a este sistema operativo.
+HELP
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --dry)
-      dry="1"
-      ;;
-    *)
-      filter="$1"
-      ;;
+    --dry)                dry="1" ;;
+    -i|--interactive)     interactive="1" ;;
+    -h|--help)            usage; exit 0 ;;
+    -*)                   echo "❓ Opción desconocida: $1"; usage; exit 1 ;;
+    *)                    filter="$1" ;;
   esac
   shift
 done
+
+# ─── Colores (solo si hay terminal de verdad) ────────────────────────────────
+if [[ -t 1 ]]; then
+  BOLD=$'\033[1m'; DIM=$'\033[2m'; RESET=$'\033[0m'
+  CYAN=$'\033[36m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; MAGENTA=$'\033[35m'
+else
+  BOLD=""; DIM=""; RESET=""; CYAN=""; GREEN=""; YELLOW=""; MAGENTA=""
+fi
+
+# ─── Sistema operativo ───────────────────────────────────────────────────────
+case "$(uname -s)" in
+  Darwin) OS_KEY="darwin"; OS_NAME="macOS";  OS_ICON="🍎" ;;
+  Linux)  OS_KEY="linux";  OS_NAME="Linux";  OS_ICON="🐧" ;;
+  *)      OS_KEY="other";  OS_NAME="$(uname -s)"; OS_ICON="❓" ;;
+esac
+
+banner() {
+  printf '%s' "$CYAN"
+  cat <<'ART'
+   ██╗      █████╗ ███████╗████████╗
+   ██║     ██╔══██╗██╔════╝╚══██╔══╝
+   ██║     ███████║███████╗   ██║
+   ██║     ██╔══██║╚════██║   ██║
+   ███████╗██║  ██║███████║   ██║
+   ╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝
+ART
+  printf '%s' "$RESET"
+  echo "   ${DIM}· d o t f i l e s ·${RESET}  ${OS_ICON} ${BOLD}${OS_NAME}${RESET}"
+  echo
+}
 
 log() {
   if [[ $dry == "1" ]]; then
@@ -52,25 +95,45 @@ execute() {
   "$@"
 }
 
-# Sin filtro solo se ejecuta el bootstrap: lo de runs/infra, runs/access y
-# runs/utils son comandos imperativos o interactivos (install-k3s crea un cluster,
-# tmux-sessionizer abre un fzf, switch-cluster necesita un argumento), no cosas
-# que quieras disparar por el simple hecho de poner al día una máquina.
-if [[ -n "$filter" ]]; then
-  search_root="./runs"
-  log "run: filter=$filter"
-else
-  search_root="./runs/bootstrap"
-  log "run: sin filtro → solo bootstrap (usa un filtro para infra/access/utils)"
-fi
+# ─── Metadatos de un script ──────────────────────────────────────────────────
+# Cada script se describe a sí mismo en su cabecera, para que añadir uno nuevo no
+# obligue a tocar este fichero:
+#   # run-os: darwin | linux | any
+#   # run-desc: 🎯 Lo que hace
+meta_field() { # meta_field <script> <campo>
+  sed -n "s/^# run-$2: //p" "$1" | head -1
+}
 
+script_os()   { local v; v=$(meta_field "$1" os);   echo "${v:-any}"; }
+script_desc() { local v; v=$(meta_field "$1" desc); echo "${v:-$(basename "$1")}"; }
+
+applies_here() { # applies_here <script>
+  local os; os=$(script_os "$1")
+  [[ "$os" == "any" || "$os" == "$OS_KEY" ]]
+}
+
+# ─── Descubrir scripts ───────────────────────────────────────────────────────
 # -perm -111 es POSIX y funciona en el find de BSD (macOS) y en el de GNU (Linux).
 # Con -perm /111, que es solo GNU, el find de macOS aborta con "illegal mode string"
 # y la lista sale vacía: ./run no ejecutaba nada, en silencio.
+collect() { # collect <raíz>
+  find "$1" -mindepth 1 -type f -perm -111 | LC_ALL=C sort
+}
+
+# Sin filtro y sin -i solo se ejecuta el bootstrap: lo de runs/infra, runs/access y
+# runs/utils son comandos imperativos o interactivos (install-k3s crea un cluster,
+# tmux-sessionizer abre un fzf, switch-cluster necesita un argumento), no cosas
+# que quieras disparar por el simple hecho de poner al día una máquina.
+if [[ -n "$filter" || "$interactive" == "1" ]]; then
+  search_root="./runs"
+else
+  search_root="./runs/bootstrap"
+fi
+
 scripts=()
 while IFS= read -r script; do
   scripts+=("$script")
-done < <(find "$search_root" -mindepth 1 -type f -perm -111 | LC_ALL=C sort)
+done < <(collect "$search_root")
 
 if [[ ${#scripts[@]} -eq 0 ]]; then
   echo "❌ No se encontró ningún script ejecutable en $search_root"
@@ -78,11 +141,9 @@ if [[ ${#scripts[@]} -eq 0 ]]; then
   exit 1
 fi
 
-# Arrays para almacenar los scripts
+# ─── Aplicar el filtro ───────────────────────────────────────────────────────
 to_run=()
 filtered=()
-
-# Clasificar scripts
 for script in "${scripts[@]}"; do
   if [[ -n "$filter" ]] && ! echo "$script" | grep -q "$filter"; then
     filtered+=("$script")
@@ -96,7 +157,138 @@ if [[ ${#to_run[@]} -eq 0 ]]; then
   exit 1
 fi
 
-# Reordenar el bootstrap según BOOTSTRAP_ORDER; el resto queda detrás, ya ordenado.
+# ─── Menú interactivo ────────────────────────────────────────────────────────
+# En el bash 3.2 de macOS no hay arrays asociativos, así que la selección se
+# lleva en un array indexado paralelo de "0"/"1".
+interactive_menu() {
+  local candidates=() skipped=()
+  local s
+  for s in "${to_run[@]}"; do
+    if applies_here "$s"; then
+      candidates+=("$s")
+    else
+      skipped+=("$s")
+    fi
+  done
+
+  if [[ ${#candidates[@]} -eq 0 ]]; then
+    echo "❌ Nada aplicable a $OS_NAME con este filtro."
+    exit 1
+  fi
+
+  local sel=()
+  local i
+  for ((i = 0; i < ${#candidates[@]}; i++)); do sel[$i]="0"; done
+
+  local msg=""
+  while true; do
+    clear 2>/dev/null || true
+    banner
+
+    local last_dir=""
+    for ((i = 0; i < ${#candidates[@]}; i++)); do
+      local path="${candidates[$i]}"
+      local dir; dir=$(basename "$(dirname "$path")")
+      if [[ "$dir" != "$last_dir" ]]; then
+        [[ -n "$last_dir" ]] && echo
+        echo "  ${BOLD}${MAGENTA}runs/$dir/${RESET}"
+        last_dir="$dir"
+      fi
+      local mark="${DIM}○${RESET}"
+      [[ "${sel[$i]}" == "1" ]] && mark="${GREEN}●${RESET}"
+      printf "   %s %2d) %-32s %s%s%s\n" \
+        "$mark" "$((i + 1))" "$(basename "$path")" \
+        "$DIM" "$(script_desc "$path")" "$RESET"
+    done
+
+    if [[ ${#skipped[@]} -gt 0 ]]; then
+      local names=""
+      for s in "${skipped[@]}"; do names="$names, $(basename "$s")"; done
+      echo
+      echo "  ${DIM}⏭️  Ocultos por no ser de $OS_NAME: ${names:2}${RESET}"
+    fi
+
+    echo
+    echo "  ${DIM}────────────────────────────────────────────────────────────${RESET}"
+    echo "  ${BOLD}1-${#candidates[@]}${RESET} alternar   ${BOLD}a${RESET} todos   ${BOLD}n${RESET} ninguno   ${BOLD}b${RESET} solo bootstrap"
+    echo "  ${BOLD}↵${RESET}  ejecutar    ${BOLD}q${RESET} salir"
+    [[ -n "$msg" ]] && echo && echo "  $msg"
+    echo
+
+    local count=0
+    for ((i = 0; i < ${#candidates[@]}; i++)); do
+      [[ "${sel[$i]}" == "1" ]] && count=$((count + 1))
+    done
+
+    printf "  %s▶%s Seleccionados: %s%d%s  › " \
+      "$CYAN" "$RESET" "$BOLD" "$count" "$RESET"
+
+    local answer
+    if ! read -r answer; then
+      echo; echo "  👋 Sin entrada, saliendo."; exit 0
+    fi
+    msg=""
+
+    case "$answer" in
+      q|Q)
+        echo "  👋 Nada que hacer."; exit 0 ;;
+      a|A)
+        for ((i = 0; i < ${#candidates[@]}; i++)); do sel[$i]="1"; done ;;
+      n|N)
+        for ((i = 0; i < ${#candidates[@]}; i++)); do sel[$i]="0"; done ;;
+      b|B)
+        for ((i = 0; i < ${#candidates[@]}; i++)); do
+          case "${candidates[$i]}" in
+            ./runs/bootstrap/*) sel[$i]="1" ;;
+            *)                  sel[$i]="0" ;;
+          esac
+        done ;;
+      "")
+        if [[ $count -eq 0 ]]; then
+          msg="${YELLOW}⚠️  No has elegido nada todavía.${RESET}"
+          continue
+        fi
+        break ;;
+      *)
+        # Acepta "1 3 5" y "1,3,5"
+        local tok bad=""
+        for tok in ${answer//,/ }; do
+          if [[ "$tok" =~ ^[0-9]+$ ]] && (( tok >= 1 && tok <= ${#candidates[@]} )); then
+            local idx=$((tok - 1))
+            [[ "${sel[$idx]}" == "1" ]] && sel[$idx]="0" || sel[$idx]="1"
+          else
+            bad="$bad $tok"
+          fi
+        done
+        [[ -n "$bad" ]] && msg="${YELLOW}⚠️  Fuera de rango:$bad${RESET}"
+        ;;
+    esac
+  done
+
+  to_run=()
+  for ((i = 0; i < ${#candidates[@]}; i++)); do
+    [[ "${sel[$i]}" == "1" ]] && to_run+=("${candidates[$i]}")
+  done
+  filtered=()
+  echo
+}
+
+if [[ "$interactive" == "1" ]]; then
+  if [[ ! -t 0 ]]; then
+    echo "❌ -i necesita una terminal interactiva."
+    exit 1
+  fi
+  interactive_menu
+else
+  banner
+  if [[ -n "$filter" ]]; then
+    log "run: filter=$filter"
+  else
+    log "run: sin filtro → solo bootstrap (usa un filtro o -i para el resto)"
+  fi
+fi
+
+# ─── Ordenar según BOOTSTRAP_ORDER ───────────────────────────────────────────
 # Nota: en el bash 3.2 de macOS, iterar "${arr[@]}" con el array vacío es un
 # "unbound variable" bajo set -u, así que cada bucle va detrás de su check de tamaño.
 ordered=()
@@ -116,8 +308,9 @@ for script in "${to_run[@]}"; do
 done
 to_run=("${ordered[@]}")
 
-# Ejecutar los scripts que pasan el filtro. Un instalador que falle no debe
-# llevarse por delante a los demás, así que aquí no se aborta: se resume al final.
+# ─── Ejecutar ────────────────────────────────────────────────────────────────
+# Un instalador que falle no debe llevarse por delante a los demás, así que aquí
+# no se aborta: se resume al final.
 failed=()
 for script in "${to_run[@]}"; do
   log "running script: $script"
@@ -127,7 +320,6 @@ for script in "${to_run[@]}"; do
   fi
 done
 
-# Mostrar los scripts filtrados al final
 if [[ ${#filtered[@]} -gt 0 ]]; then
   echo ""
   echo "🔎 Scripts filtrados:"
@@ -146,4 +338,4 @@ if [[ ${#failed[@]} -gt 0 ]]; then
 fi
 
 echo ""
-echo "✅ Listo"
+echo "${GREEN}✅ Listo${RESET}"

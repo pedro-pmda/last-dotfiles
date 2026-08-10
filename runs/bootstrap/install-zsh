@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# run-os: any
+# run-desc: 🐚 Zsh + Antigen, p10k, fzf, kube-ps1 y ~/.zshrc
 
 set -euo pipefail
 

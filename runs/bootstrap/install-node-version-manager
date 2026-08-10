@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# run-os: any
+# run-desc: 📦 nvm + la última versión de Node
 
 set -euo pipefail
 
