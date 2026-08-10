@@ -73,7 +73,9 @@ local function getScreenFrame()
         end
         return { x = 0, y = 0, w = screen:get_width(), h = screen:get_height() }
     end
-    return { x = 0, y = 0, w = 1920, h = 1080 }
+    -- Sin Gdk no hay geometría real: se marca para que shouldTile() no decida
+    -- a partir de un 1920x1080 inventado.
+    return { x = 0, y = 0, w = 1920, h = 1080, fallback = true }
 end
 
 -- eDP/LVDS are the X11 connector names for built-in laptop screens.
@@ -83,6 +85,19 @@ local function isUsingLaptopScreen()
     local n = tonumber(f:read("*a")) or 0
     f:close()
     return n > 0
+end
+
+-- ¿Hay ancho de sobra para repartir ventanas? Igual que en Hammerspoon, se decide
+-- por geometría y no por el conector: contar eDP/LVDS respondía a "¿hay panel
+-- integrado?", que sigue siendo cierto con el portátil abierto y un monitor
+-- externo conectado, así que forzaba pantalla completa cuando no tocaba.
+-- xrandr queda solo como respaldo para cuando Gdk no sabe dar el workarea.
+local function shouldTile()
+    local screen = getScreenFrame()
+    if screen.fallback then
+        return not isUsingLaptopScreen()
+    end
+    return screen.w >= (config.minWidthForTiling or 2000)
 end
 
 -- ─── Window helpers ──────────────────────────────────────────────────────────
@@ -145,9 +160,20 @@ local function moveWindow(appName, layoutTable)
     local screen = getScreenFrame()
     for _, cfg in ipairs(layoutTable) do
         if cfg.name == appName then
-            local width  = getSizeFraction(screen.w, cfg.width)
-            local height = getSizeFraction(screen.h, cfg.height)
-            local x, y  = calculatePosition(screen, width, height, cfg.position, cfg.vertical)
+            local pos, vert = cfg.position, cfg.vertical
+            local w, h = cfg.width, cfg.height
+            -- Sin sitio para repartir: pantalla completa. En locales, nunca
+            -- escribiendo en la tabla del profile. Antes esto lo hacía
+            -- adaptLayoutForCurrentScreen mutando la tabla, así que en cuanto
+            -- corría con el portátil solo, las fracciones originales se perdían
+            -- para toda la vida del proceso y reconectar el monitor no las
+            -- recuperaba sin reiniciar el servicio.
+            if not shouldTile() then
+                pos, vert, w, h = "center", "center", "3/3", "3/3"
+            end
+            local width  = getSizeFraction(screen.w, w)
+            local height = getSizeFraction(screen.h, h)
+            local x, y  = calculatePosition(screen, width, height, pos, vert)
             -- Muffin ignores set_geometry on maximized windows — always unmaximize first.
             win:unmaximize()
             -- STATIC gravity (10) = coordinates are screen-relative.
@@ -159,18 +185,46 @@ local function moveWindow(appName, layoutTable)
     end
 end
 
-local function adaptLayoutForCurrentScreen(layoutTable)
-    if isUsingLaptopScreen() then
-        for _, appCfg in ipairs(layoutTable) do
-            appCfg.position = "center"
-            appCfg.width    = "3/3"
-            appCfg.height   = "3/3"
-            appCfg.vertical = "center"
-        end
-        notify("💻 Laptop screen → fullscreen layout")
-    else
+-- Solo avisa del modo en el que se va a colocar. Quien decide es shouldTile(),
+-- en cada moveWindow, para que desconectar el monitor no exija reiniciar.
+local function announceScreenMode()
+    if shouldTile() then
         notify("🖥️ External screen → multi-window layout")
+    else
+        notify("💻 Laptop screen → fullscreen layout")
     end
+end
+
+-- Layout del modo activo. Lo actualizan workMode() y kaizenMode() para que
+-- recolocar devuelva las ventanas al sitio del modo en el que estás.
+local currentLayout = config.workAppLayout
+
+-- Coloca una app al pulsar su tecla, buscando su sitio en el layout del modo
+-- activo y, si no está ahí, en el de apps que solo se abren a mano.
+local function positionApp(appName)
+    for _, layoutTable in ipairs({ currentLayout, config.onDemandAppLayout or {} }) do
+        for _, cfg in ipairs(layoutTable) do
+            if cfg.name == appName then
+                moveWindow(appName, layoutTable)
+                return
+            end
+        end
+    end
+end
+
+-- Devuelve a su posición inicial todas las ventanas abiertas ahora mismo.
+-- No lanza nada: lo que esté cerrado sigue cerrado.
+local function resetLayout()
+    local moved = 0
+    for _, layoutTable in ipairs({ currentLayout, config.onDemandAppLayout or {} }) do
+        for _, cfg in ipairs(layoutTable) do
+            if findWindowByName(cfg.name) then
+                moveWindow(cfg.name, layoutTable)
+                moved = moved + 1
+            end
+        end
+    end
+    notify("🧹 " .. moved .. " ventanas recolocadas")
 end
 
 local function closeAllWindows()
@@ -215,10 +269,21 @@ local browserBinary = {
     ["Chromium"]      = "chromium-browser",
 }
 
+-- Las URLs vienen del profile, pero acaban en una línea de shell: sin citarlas,
+-- cualquier & o ; en una query rompe el comando (o ejecuta otra cosa).
+local function shellQuote(s)
+    return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
+
 local function openBrowserWithUrls(appName, urls)
-    local binary = browserBinary[appName] or "xdg-open"
+    local binary = browserBinary[appName]
+    -- xdg-open no entiende --new-tab, así que el fallback no puede llevarlo.
+    local flag = binary and " --new-tab " or " "
+    binary = binary or "xdg-open"
     for _, url in ipairs(urls) do
-        io.popen(binary .. " --new-tab " .. url .. " >/dev/null 2>&1 &")
+        -- io.popen deja el handle abierto; con una pestaña por URL se acumulan.
+        local f = io.popen(binary .. flag .. shellQuote(url) .. " >/dev/null 2>&1 &")
+        if f then f:close() end
     end
 end
 
@@ -250,7 +315,8 @@ end
 
 local function workMode()
     notify("🧑🏾‍💻 Entering Work Mode...")
-    adaptLayoutForCurrentScreen(config.workAppLayout)
+    currentLayout = config.workAppLayout
+    announceScreenMode()
     closeAllWindows()
 
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, function()
@@ -273,7 +339,8 @@ end
 
 local function kaizenMode()
     notify("⛩️ Entering Kaizen Mode...")
-    adaptLayoutForCurrentScreen(config.kaizenAppLayout)
+    currentLayout = config.kaizenAppLayout
+    announceScreenMode()
     closeAllWindows()
 
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, function()
@@ -326,10 +393,25 @@ local function configureFunctionKeys()
                     os.execute("systemctl --user restart lua-wm.service &")
                 elseif action == "KAIZEN_MODE" then
                     kaizenMode()
+                elseif action == "WORK_MODE" then
+                    workMode()
+                elseif action == "RESET_LAYOUT" then
+                    resetLayout()
                 elseif action == "EMOJI" then
                     pcall(function() os.execute("ibus emoji >/dev/null 2>&1 &") end)
                 else
+                    -- Solo colocar la ventana al abrir la app por primera vez. Si ya
+                    -- estaba corriendo la tecla es puro focus: el tamaño que le hayas
+                    -- dado se respeta. Antes la tecla nunca colocaba nada en Linux.
+                    local wasRunning = findWindowByName(action) ~= nil
                     launchOrFocusApp(action)
+                    if not wasRunning then
+                        GLib.timeout_add(GLib.PRIORITY_DEFAULT,
+                            math.floor(config.appLaunchDelay * 1000), function()
+                                positionApp(action)
+                                return false
+                            end)
+                    end
                 end
             end)
         end

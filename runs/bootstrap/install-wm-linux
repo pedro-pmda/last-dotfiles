@@ -14,8 +14,10 @@ AUTOSTART_DIR="$HOME/.config/autostart"
 SERVICE_NAME="lua-wm"
 
 # --- 1. Paquetes ---------------------------------------------------------------
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/apt.sh"
+
 echo "📦 Instalando lua5.3 + lgi + keybinder + wnck + notify..."
-sudo apt-get install -y \
+apt_install \
     lua5.3 \
     lua-lgi \
     gir1.2-keybinder-3.0 \
@@ -85,6 +87,33 @@ link "$CONFIG_SRC/init.lua"        "$CONFIG_DEST/init.lua"
 link "$PROFILES_DIR/$profile.lua"  "$CONFIG_DEST/app_config.lua"
 
 # --- 5. Servicio systemd user (para restart con Shift+F12 y para los logs) ----
+
+# El intérprete y las rutas de lgi se descubren en vez de hardcodearse. El
+# LUA_CPATH estaba fijado a /usr/lib/x86_64-linux-gnu, así que en un Linux arm64
+# (donde el triplete es aarch64-linux-gnu) lgi no cargaba, el daemon moría y
+# Restart=on-failure lo dejaba reiniciándose en bucle.
+LUA_BIN="$(command -v lua5.3 || command -v lua5.4 || command -v lua || true)"
+if [[ -z "$LUA_BIN" ]]; then
+    echo "❌ No se encuentra ningún intérprete de Lua después de instalar lua5.3"
+    exit 1
+fi
+
+# Versión real del intérprete que se va a usar (5.3, 5.4...), para las rutas
+LUA_VERSION="$("$LUA_BIN" -e 'io.write(_VERSION:match("%d+%.%d+"))')"
+
+# Triplete multiarch de Debian; si no hay dpkg-architecture se prueba con gcc
+MULTIARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null \
+    || gcc -print-multiarch 2>/dev/null \
+    || true)"
+
+LUA_CPATH_DIRS="/usr/lib/lua/$LUA_VERSION/?.so"
+if [[ -n "$MULTIARCH" ]]; then
+    LUA_CPATH_DIRS="/usr/lib/$MULTIARCH/lua/$LUA_VERSION/?.so;$LUA_CPATH_DIRS"
+fi
+
+echo "🔧 Intérprete: $LUA_BIN (Lua $LUA_VERSION)"
+echo "🔧 Multiarch:  ${MULTIARCH:-(no detectado)}"
+
 mkdir -p "$SERVICE_DIR"
 
 cat > "$SERVICE_DIR/$SERVICE_NAME.service" <<EOF
@@ -95,9 +124,9 @@ After=graphical-session.target
 [Service]
 Type=simple
 Environment=DISPLAY=:0
-Environment=LUA_PATH=$CONFIG_DEST/?.lua;/usr/share/lua/5.3/?.lua;/usr/share/lua/5.3/?/init.lua;;
-Environment=LUA_CPATH=/usr/lib/x86_64-linux-gnu/lua/5.3/?.so;;
-ExecStart=/usr/bin/lua5.3 $CONFIG_DEST/init.lua
+Environment=LUA_PATH=$CONFIG_DEST/?.lua;/usr/share/lua/$LUA_VERSION/?.lua;/usr/share/lua/$LUA_VERSION/?/init.lua;;
+Environment=LUA_CPATH=$LUA_CPATH_DIRS;;
+ExecStart=$LUA_BIN $CONFIG_DEST/init.lua
 Restart=on-failure
 RestartSec=3s
 
@@ -105,12 +134,20 @@ RestartSec=3s
 WantedBy=default.target
 EOF
 
-systemctl --user daemon-reload
-# Habilita el servicio para restart manual (Shift+F12 → systemctl --user restart lua-wm)
-# En Cinnamon/LightDM el arranque al login se hace vía XDG autostart (ver abajo)
-systemctl --user enable "$SERVICE_NAME.service" || true
-echo "✅ Servicio systemd configurado: $SERVICE_DIR/$SERVICE_NAME.service"
-echo "   → Logs: journalctl --user -u $SERVICE_NAME -f"
+# En WSL2 y en distros sin systemd no hay bus de usuario, y con set -e el
+# daemon-reload se llevaba el script antes de escribir el autostart XDG, que es
+# justamente el mecanismo primario de arranque.
+if command -v systemctl &>/dev/null && systemctl --user show-environment &>/dev/null; then
+    systemctl --user daemon-reload
+    # Habilita el servicio para restart manual (Shift+F12 → systemctl --user restart lua-wm)
+    # En Cinnamon/LightDM el arranque al login se hace vía XDG autostart (ver abajo)
+    systemctl --user enable "$SERVICE_NAME.service" || true
+    echo "✅ Servicio systemd configurado: $SERVICE_DIR/$SERVICE_NAME.service"
+    echo "   → Logs: journalctl --user -u $SERVICE_NAME -f"
+else
+    echo "⚠️  Sin sesión de systemd de usuario: el .service queda escrito pero sin"
+    echo "    habilitar. El arranque irá por el autostart XDG de abajo."
+fi
 
 # --- 6. XDG autostart (mecanismo primario en Cinnamon/LightDM) ----------------
 # graphical-session.target no se activa automáticamente en LightDM,
@@ -122,7 +159,7 @@ cat > "$AUTOSTART_DIR/$SERVICE_NAME.desktop" <<EOF
 Type=Application
 Name=lua-wm
 Comment=Lua window manager daemon
-Exec=/usr/bin/lua5.3 $CONFIG_DEST/init.lua
+Exec=$LUA_BIN $CONFIG_DEST/init.lua
 Terminal=false
 X-GNOME-Autostart-enabled=true
 NoDisplay=true
