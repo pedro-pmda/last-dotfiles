@@ -5,10 +5,23 @@ local function debugPrint(message)
     if config.debugMode then hs.alert.show(message) end
 end
 
+-- Localiza una app ya abierta. El nombre con el que se lanza (el del .app) no siempre
+-- es el que macOS devuelve al buscarla: "Visual Studio Code.app" corre como "Code".
+-- Para esos casos el profile declara su bundle ID en `appIds`.
+local function getApp(appName)
+    local id = config.appIds and config.appIds[appName]
+    return (id and hs.application.get(id)) or hs.application.get(appName)
+end
+
 -- Launch/focus an app, using its configured path if it lives outside /Applications
 local function launchOrFocusApp(appName)
     local path = config.appPaths and config.appPaths[appName]
     if path then
+        -- Rutas externas (discos montados) pueden no estar disponibles: avisar en vez de fallar en silencio
+        if not hs.fs.attributes(path) then
+            hs.alert.show("❌ " .. appName .. " no encontrada en " .. path)
+            return
+        end
         hs.application.open(path)
     else
         hs.application.launchOrFocus(appName)
@@ -31,12 +44,32 @@ local function calculatePosition(screen, width, height, horizontalPos, verticalP
     return xPositions[horizontalPos] or screen.x, yPositions[verticalPos] or screen.y
 end
 
+-- Pantalla destino de una entrada del layout: "primary" (default) o "secondary".
+-- Si no hay segunda pantalla cae a la primaria, para que al desconectar el monitor
+-- la app no acabe en las coordenadas de una pantalla que ya no existe.
+local function resolveScreen(which)
+    local primary = hs.screen.primaryScreen()
+    if which == "secondary" then
+        for _, s in ipairs(hs.screen.allScreens()) do
+            if s:id() ~= primary:id() then return s end
+        end
+    end
+    return primary
+end
+
+-- ¿Hay ancho de sobra para repartir ventanas? Se decide por geometría y no por el
+-- nombre de la pantalla, que varía entre modelos ("Built-in Liquid Retina XDR Display").
+-- Pantalla estrecha = estás solo con el portátil = todo a pantalla completa.
+local function shouldTile()
+    local screen = hs.screen.primaryScreen()
+    return screen ~= nil and screen:frame().w >= (config.minWidthForTiling or 2000)
+end
+
 local function moveWindow(appName, layoutTable)
-    local app = hs.application.get(appName)
+    local app = getApp(appName)
     if app then
         local win = app:mainWindow()
         if win then
-            local screen = hs.screen.primaryScreen():frame()
             local appConfig = nil
 
             for _, cfg in ipairs(layoutTable) do
@@ -47,13 +80,55 @@ local function moveWindow(appName, layoutTable)
             end
 
             if appConfig then
-                local width = getSizeFraction(screen.w, appConfig.width)
-                local height = getSizeFraction(screen.h, appConfig.height)
-                local x, y = calculatePosition(screen, width, height, appConfig.position, appConfig.vertical)
+                local pos, vert = appConfig.position, appConfig.vertical
+                local w, h = appConfig.width, appConfig.height
+                -- Sin sitio para repartir: pantalla completa. En locales, nunca
+                -- escribiendo en la tabla del profile (se perdería al reconectar).
+                if not shouldTile() then
+                    pos, vert, w, h = "center", "center", "3/3", "3/3"
+                end
+
+                local screen = resolveScreen(appConfig.screen):frame()
+                local width = getSizeFraction(screen.w, w)
+                local height = getSizeFraction(screen.h, h)
+                local x, y = calculatePosition(screen, width, height, pos, vert)
                 win:setFrame(hs.geometry.rect(x, y, width, height))
             end
         end
     end
+end
+
+-- Layout del modo activo. Lo actualizan workMode() y kaizenMode() para que
+-- recolocar devuelva las ventanas al sitio del modo en el que estás.
+local currentLayout = config.workAppLayout
+
+-- Coloca una app al pulsar su tecla, buscando su sitio en el layout del modo activo
+-- y, si no está ahí, en el de apps que solo se abren a mano.
+local function positionApp(appName)
+    for _, layoutTable in ipairs({ currentLayout, config.onDemandAppLayout or {} }) do
+        for _, cfg in ipairs(layoutTable) do
+            if cfg.name == appName then
+                moveWindow(appName, layoutTable)
+                return
+            end
+        end
+    end
+end
+
+-- Devuelve a su posición inicial todas las ventanas abiertas ahora mismo.
+-- No lanza nada: lo que esté cerrado sigue cerrado.
+local function resetLayout()
+    local moved = 0
+    for _, layoutTable in ipairs({ currentLayout, config.onDemandAppLayout or {} }) do
+        for _, cfg in ipairs(layoutTable) do
+            local app = getApp(cfg.name)
+            if app and app:mainWindow() then
+                moveWindow(cfg.name, layoutTable)
+                moved = moved + 1
+            end
+        end
+    end
+    hs.alert.show("🧹 " .. moved .. " ventanas recolocadas")
 end
 
 -- Browser opener
@@ -71,25 +146,13 @@ local function handleChromium() openBrowserWithUrls("Chromium", config.workChrom
 local function handleKaizenChrome() openBrowserWithUrls("Google Chrome", config.kaizenChromeConfig.urls) end
 local function handleKaizenChromium() openBrowserWithUrls("Chromium", config.kaizenChromiumConfig.urls) end
 
--- Laptop screen detection
-local function isUsingLaptopScreen()
-    local screen = hs.screen.primaryScreen()
-    if not screen then return false end
-    local screenName = screen:name() or ""
-    return screenName:lower():find("built%-in retina display") ~= nil
-end
-
-local function adaptLayoutForCurrentScreen(layoutTable)
-    if isUsingLaptopScreen() then
-        for _, appCfg in ipairs(layoutTable) do
-            appCfg.position = "center"
-            appCfg.width = "3/3"
-            appCfg.height = "3/3"
-            appCfg.vertical = "center"
-        end
-        hs.alert.show("💻 Laptop screen → fullscreen layout")
-    else
+-- Solo avisa del modo en el que se va a colocar. Quien decide es shouldTile(),
+-- en cada moveWindow, para que desconectar el monitor no exija recargar.
+local function announceScreenMode()
+    if shouldTile() then
         hs.alert.show("🖥️ External screen → multi-window layout")
+    else
+        hs.alert.show("💻 Laptop screen → fullscreen layout")
     end
 end
 
@@ -122,7 +185,7 @@ end
 -- Bring apps to front
 local function bringAppsToFront(appNames)
     for _, name in ipairs(appNames) do
-        local app = hs.application.get(name)
+        local app = getApp(name)
         if app and app:mainWindow() then
             app:activate()
         end
@@ -134,7 +197,8 @@ local function workMode()
     debugPrint("🧑🏾‍💻 Entering Work Mode...")
     hs.alert.show("🧑🏾‍💻 Entering Work Mode...")
 
-    adaptLayoutForCurrentScreen(config.workAppLayout)
+    currentLayout = config.workAppLayout
+    announceScreenMode()
     closeAllWindows()
 
     hs.timer.doAfter(2, function()
@@ -176,7 +240,8 @@ local function kaizenMode()
     debugPrint("⛩️ Starting Kaizen Mode...")
     hs.alert.show("⛩️ Entering Kaizen Mode...")
 
-    adaptLayoutForCurrentScreen(config.kaizenAppLayout)
+    currentLayout = config.kaizenAppLayout
+    announceScreenMode()
     closeAllWindows()
 
     hs.timer.doAfter(2, function()
@@ -229,6 +294,16 @@ local function configureFunctionKeys()
                 debugPrint("Activating Kaizen Mode...")
                 kaizenMode()
             end)
+        elseif action == "WORK_MODE" then
+            hs.hotkey.bind(modifiers, key, function()
+                debugPrint("Activating Work Mode...")
+                workMode()
+            end)
+        elseif action == "RESET_LAYOUT" then
+            hs.hotkey.bind(modifiers, key, function()
+                debugPrint("Recolocando ventanas abiertas...")
+                resetLayout()
+            end)
         elseif action == "EMOJI" then
             debugPrint("Activating Emoji Mode...")
             hs.hotkey.bind(modifiers, key, function()
@@ -236,7 +311,13 @@ local function configureFunctionKeys()
             end)
         elseif action then
             hs.hotkey.bind(modifiers, key, function()
+                -- Solo colocar la ventana al abrir la app por primera vez. Si ya estaba
+                -- corriendo la tecla es puro focus: el tamaño que le hayas dado se respeta.
+                local wasRunning = getApp(action) ~= nil
                 launchOrFocusApp(action)
+                if not wasRunning then
+                    hs.timer.doAfter(config.appLaunchDelay, function() positionApp(action) end)
+                end
             end)
         end
     end
