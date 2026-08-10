@@ -1,12 +1,21 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-echo "🔄 Actualizando Homebrew..."
-brew update
+# Sin esto, un ./run recién clonado moría aquí con "brew: command not found":
+# este script se ejecutaba antes de que install-home-brew hubiera corrido.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+ensure_brew
 
-echo "🍺 Instalando k3d (wrapper de K3s para Docker)..."
-brew install k3d
+if command -v k3d &>/dev/null; then
+  echo "✅ k3d ya está instalado."
+else
+  echo "🔄 Actualizando Homebrew..."
+  brew update
+
+  echo "🍺 Instalando k3d (wrapper de K3s para Docker)..."
+  brew install k3d
+fi
 
 echo "🐳 Verificando si Docker está corriendo..."
 if ! docker info &>/dev/null; then
@@ -14,9 +23,15 @@ if ! docker info &>/dev/null; then
   exit 1
 fi
 
-echo "🚀 Creando cluster K3s local usando k3d..."
-k3d cluster create peter-cluster --agents 2 --port 8080:80@loadbalancer
+CLUSTER_NAME="peter-cluster"
 
-echo "✅ K3s cluster creado. Puedes verificarlo con:"
-echo "   kubectl get nodes"
+if k3d cluster list "$CLUSTER_NAME" &>/dev/null; then
+  echo "✅ El cluster '$CLUSTER_NAME' ya existe."
+else
+  echo "🚀 Creando cluster K3s local usando k3d..."
+  k3d cluster create "$CLUSTER_NAME" --agents 2 --port 8080:80@loadbalancer
+  echo "✅ K3s cluster creado."
+fi
+
+echo "   Puedes verificarlo con: kubectl get nodes"
 

@@ -1,46 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-echo "🍺 [1/8] Verificando instalación de Homebrew..."
-if ! command -v brew &> /dev/null; then
-  echo "📦 Instalando Homebrew..."
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-  # El instalador solo añade brew a ~/.zshrc; hay que ponerlo en el PATH de
-  # este proceso para poder usarlo en lo que queda de script.
-  for brew_bin in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do
-    [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
-  done
-else
-  echo "✅ Homebrew ya está instalado."
-fi
-
-echo "🔍 [2/8] Verificando instalación de Zsh..."
-if ! command -v zsh &> /dev/null; then
-  echo "📦 Instalando Zsh..."
-  if [[ "$(uname -s)" == "Linux" ]]; then
-    # apt registra el binario en /etc/shells automáticamente; el zsh de Linuxbrew no,
-    # y eso hace que chsh lo rechace más abajo.
-    sudo apt-get install -y zsh
-  else
-    brew install zsh
-  fi
-else
-  echo "✅ Zsh ya está instalado."
-fi
-
-echo "🔧 [3/8] Instalando herramientas necesarias con Homebrew..."
-brew install fzf kubectx kubectx thefuck autojump
-$(brew --prefix)/opt/fzf/install
-
-echo "📦 [4/8] Instalando Antigen..."
-curl -L git.io/antigen > ~/.antigen.zsh
-
-echo "☸️ [5/8] Clonando kube-ps1..."
-git clone https://github.com/jonmosco/kube-ps1.git ~/.kube-ps1 || echo "-> kube-ps1 ya existe."
-
-echo "🔗 [6/8] Enlazando ~/.zshrc a configs/zsh-config/.zshrc..."
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+source "$LIB_DIR/brew-env.sh"
+source "$LIB_DIR/apt.sh"
 
 # La raíz del repo se deduce del propio script: el symlink debe apuntar al clon real,
 # viva donde viva, no a un ~/last-dotfiles asumido.
@@ -48,6 +12,19 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 CONFIG_SRC="$REPO_ROOT/configs/zsh-config/.zshrc"
 CONFIG_DEST="$HOME/.zshrc"
 
+echo "🍺 [1/7] Verificando instalación de Homebrew..."
+if ! ensure_brew --optional; then
+  echo "📦 Instalando Homebrew..."
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  ensure_brew
+else
+  echo "✅ Homebrew ya está instalado."
+fi
+
+# El symlink va antes de instalar nada: es lo único que este script no puede
+# dejar a medias. Antes era el paso 6 de 8, así que un fallo de brew en el paso 3
+# abortaba con set -e y dejaba la máquina sin ~/.zshrc enlazado.
+echo "🔗 [2/7] Enlazando ~/.zshrc a configs/zsh-config/.zshrc..."
 if [[ -e "$CONFIG_DEST" && ! -L "$CONFIG_DEST" ]]; then
   stamp=$(date +%Y%m%d-%H%M%S)
   echo "⚠️  $CONFIG_DEST existe y no es un symlink → backup en $CONFIG_DEST.backup-$stamp"
@@ -56,14 +33,69 @@ fi
 ln -sfn "$CONFIG_SRC" "$CONFIG_DEST"
 echo "🔗 $CONFIG_DEST -> $CONFIG_SRC"
 
-echo "📤 [7/8] Comprobando si Zsh es tu shell por defecto..."
-
-if [ "$SHELL" != "$(which zsh)" ]; then
-  echo "🔄 Cambiando tu shell por defecto a Zsh..."
-  chsh -s $(which zsh)
+echo "🔍 [3/7] Verificando instalación de Zsh..."
+if ! command -v zsh &> /dev/null; then
+  echo "📦 Instalando Zsh..."
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    # apt registra el binario en /etc/shells automáticamente; el zsh de Linuxbrew no,
+    # y eso hace que chsh lo rechace más abajo.
+    apt_install zsh
+  else
+    brew install zsh
+  fi
 else
-  echo "✅ Zsh ya es tu shell por defecto."
+  echo "✅ Zsh ya está instalado."
 fi
 
-echo "✅ [8/8] ¡Listo! Abre una nueva terminal o ejecuta: source ~/.zshrc"
+echo "🔧 [4/7] Instalando herramientas necesarias con Homebrew..."
+brew install fzf kubectx thefuck autojump
+# --all: sin él, el instalador de fzf hace tres preguntas y se queda esperando
+# stdin dentro de un ./run desatendido.
+"$(brew --prefix fzf)/install" --all
 
+echo "📦 [5/7] Instalando Antigen..."
+if [[ -s "$HOME/.antigen.zsh" ]]; then
+  echo "✅ Antigen ya está instalado."
+else
+  curl -fsSL https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh -o "$HOME/.antigen.zsh"
+  # Sin esto, un 404 o una redirección rota deja un fichero que existe pero no
+  # sirve, y el .zshrc no puede distinguirlo de una instalación buena.
+  if [[ ! -s "$HOME/.antigen.zsh" ]]; then
+    echo "❌ La descarga de Antigen salió vacía"
+    exit 1
+  fi
+fi
+
+echo "☸️ [6/7] Clonando kube-ps1..."
+if [[ -d "$HOME/.kube-ps1" ]]; then
+  echo "✅ kube-ps1 ya existe."
+else
+  git clone https://github.com/jonmosco/kube-ps1.git "$HOME/.kube-ps1"
+fi
+
+echo "📤 [7/7] Comprobando si Zsh es tu shell por defecto..."
+zsh_path="$(command -v zsh)"
+
+if [[ "$SHELL" == "$zsh_path" ]]; then
+  echo "✅ Zsh ya es tu shell por defecto."
+else
+  # chsh rechaza cualquier shell que no esté en /etc/shells. El zsh de Homebrew
+  # nunca se registra solo, así que en macOS esto fallaba siempre y, con set -e,
+  # se llevaba por delante el final del script.
+  if ! grep -qxF "$zsh_path" /etc/shells 2>/dev/null; then
+    echo "📝 $zsh_path no está en /etc/shells; añadiéndolo (pide sudo)..."
+    if ! echo "$zsh_path" | sudo tee -a /etc/shells >/dev/null; then
+      echo "⚠️  No se pudo escribir en /etc/shells. Hazlo a mano y luego:"
+      echo "    chsh -s $zsh_path"
+      exit 0
+    fi
+  fi
+
+  echo "🔄 Cambiando tu shell por defecto a Zsh (pide tu contraseña)..."
+  if ! chsh -s "$zsh_path"; then
+    echo "⚠️  chsh falló. Cámbialo a mano cuando puedas:"
+    echo "    chsh -s $zsh_path"
+  fi
+fi
+
+echo "✅ ¡Listo! Abre una nueva terminal o ejecuta: source ~/.zshrc"

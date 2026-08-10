@@ -1,13 +1,27 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 filter=""
 dry="0"
 
 cd "$script_dir" || exit 1
 
-# Buscar scripts ejecutables en la carpeta runs
-scripts=$(find ./runs -mindepth 1 -type f -perm /111)
+# Orden de arranque de una máquina nueva. Es un contrato, no el orden que devuelva
+# el filesystem: `find` no ordena, y varios instaladores necesitan que Homebrew ya
+# esté instalado. Los que no estén en esta lista se ejecutan detrás, ordenados.
+BOOTSTRAP_ORDER=(
+  install-home-brew
+  install-zsh
+  install-node-version-manager
+  install-nvim
+  install-tmux
+  install-docker
+  install-git-config
+  install-hammerspoon
+  install-wm-linux
+)
 
 # Parsear argumentos
 while [[ $# -gt 0 ]]; do
@@ -38,14 +52,38 @@ execute() {
   "$@"
 }
 
-log "run: filter=$filter"
+# Sin filtro solo se ejecuta el bootstrap: lo de runs/infra, runs/access y
+# runs/utils son comandos imperativos o interactivos (install-k3s crea un cluster,
+# tmux-sessionizer abre un fzf, switch-cluster necesita un argumento), no cosas
+# que quieras disparar por el simple hecho de poner al día una máquina.
+if [[ -n "$filter" ]]; then
+  search_root="./runs"
+  log "run: filter=$filter"
+else
+  search_root="./runs/bootstrap"
+  log "run: sin filtro → solo bootstrap (usa un filtro para infra/access/utils)"
+fi
+
+# -perm -111 es POSIX y funciona en el find de BSD (macOS) y en el de GNU (Linux).
+# Con -perm /111, que es solo GNU, el find de macOS aborta con "illegal mode string"
+# y la lista sale vacía: ./run no ejecutaba nada, en silencio.
+scripts=()
+while IFS= read -r script; do
+  scripts+=("$script")
+done < <(find "$search_root" -mindepth 1 -type f -perm -111 | LC_ALL=C sort)
+
+if [[ ${#scripts[@]} -eq 0 ]]; then
+  echo "❌ No se encontró ningún script ejecutable en $search_root"
+  echo "   ¿Les falta un chmod +x?"
+  exit 1
+fi
 
 # Arrays para almacenar los scripts
 to_run=()
 filtered=()
 
 # Clasificar scripts
-for script in $scripts; do
+for script in "${scripts[@]}"; do
   if [[ -n "$filter" ]] && ! echo "$script" | grep -q "$filter"; then
     filtered+=("$script")
   else
@@ -53,10 +91,40 @@ for script in $scripts; do
   fi
 done
 
-# Ejecutar los scripts que pasan el filtro
+if [[ ${#to_run[@]} -eq 0 ]]; then
+  echo "❌ Ningún script coincide con el filtro '$filter'"
+  exit 1
+fi
+
+# Reordenar el bootstrap según BOOTSTRAP_ORDER; el resto queda detrás, ya ordenado.
+# Nota: en el bash 3.2 de macOS, iterar "${arr[@]}" con el array vacío es un
+# "unbound variable" bajo set -u, así que cada bucle va detrás de su check de tamaño.
+ordered=()
+for name in "${BOOTSTRAP_ORDER[@]}"; do
+  for script in "${to_run[@]}"; do
+    [[ "$(basename "$script")" == "$name" ]] && ordered+=("$script")
+  done
+done
+for script in "${to_run[@]}"; do
+  found="0"
+  if [[ ${#ordered[@]} -gt 0 ]]; then
+    for already in "${ordered[@]}"; do
+      [[ "$script" == "$already" ]] && found="1" && break
+    done
+  fi
+  [[ "$found" == "0" ]] && ordered+=("$script")
+done
+to_run=("${ordered[@]}")
+
+# Ejecutar los scripts que pasan el filtro. Un instalador que falle no debe
+# llevarse por delante a los demás, así que aquí no se aborta: se resume al final.
+failed=()
 for script in "${to_run[@]}"; do
   log "running script: $script"
-  execute "./$script"
+  if ! execute "$script"; then
+    echo "❌ falló: $script"
+    failed+=("$script")
+  fi
 done
 
 # Mostrar los scripts filtrados al final
@@ -67,3 +135,15 @@ if [[ ${#filtered[@]} -gt 0 ]]; then
     echo "  ⏭️  $script"
   done
 fi
+
+if [[ ${#failed[@]} -gt 0 ]]; then
+  echo ""
+  echo "❌ Scripts que fallaron:"
+  for script in "${failed[@]}"; do
+    echo "  💥 $script"
+  done
+  exit 1
+fi
+
+echo ""
+echo "✅ Listo"

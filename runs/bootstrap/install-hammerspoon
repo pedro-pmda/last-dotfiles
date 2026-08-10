@@ -16,6 +16,10 @@ CONFIG_DEST="$HOME/.hammerspoon"
 if [[ -d "/Applications/Hammerspoon.app" ]]; then
   echo "✅ Hammerspoon ya está instalado"
 else
+  # brew solo se necesita en esta rama, así que el bootstrap va aquí dentro: si
+  # Hammerspoon ya está, el script no debe morir por no encontrar Homebrew.
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
   echo "📦 Installing Hammerspoon with Homebrew..."
   brew install --cask hammerspoon
 fi
