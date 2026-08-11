@@ -21,7 +21,7 @@ BOOTSTRAP_ORDER=(
   install-docker
   install-git-config
   install-ghostty
-  install-cli-configs
+  install-cli-tools
   install-hammerspoon
   install-wm-linux
 )

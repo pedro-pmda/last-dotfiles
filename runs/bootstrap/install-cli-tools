@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: 🛠  Herramientas de CLI: k9s, htop, glow (+ sus configs)
+
+set -euo pipefail
+
+# Instala herramientas pequeñas de terminal y enlaza su configuración.
+#
+# Antes esto solo enlazaba configs, así que en una máquina nueva podías acabar
+# con un ~/.config/glow perfectamente enlazado y sin glow instalado.
+#
+# Las tres tienen formula de Homebrew, que existe igual en macOS y en Linuxbrew,
+# así que no hace falta ramificar por sistema operativo.
+#
+# Ojo: htop reescribe su htoprc cuando cambias ajustes desde su interfaz, y k9s
+# puede reescribir su config.yaml al salir. Eso aparecerá como cambios en el repo,
+# igual que pasa con el lazy-lock.json de nvim: es el precio de tenerlo versionado.
+
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+source "$LIB_DIR/brew-env.sh"
+
+# La raíz del repo se deduce del propio script, no de un ~/last-dotfiles asumido.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CONFIG_SRC="$REPO_ROOT/configs/cli-config"
+
+# El nombre sirve de tres cosas: formula de brew, binario y carpeta de config.
+TOOLS=(
+  k9s
+  htop
+  glow
+)
+
+# --- 1. Instalar lo que falte -------------------------------------------------
+# Se comprueba con `command -v`, no con `brew list`: si ya tienes la herramienta
+# por apt o compilada, se respeta en vez de instalar una segunda copia.
+missing=()
+for tool in "${TOOLS[@]}"; do
+  if command -v "$tool" &>/dev/null; then
+    echo "✅ $tool ya está instalado ($(command -v "$tool"))"
+  else
+    missing+=("$tool")
+  fi
+done
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+  ensure_brew
+  echo "📦 Instalando con Homebrew: ${missing[*]}"
+  brew install "${missing[@]}"
+fi
+
+# --- 2. Enlazar sus configs ---------------------------------------------------
+# Se enlaza el DIRECTORIO de cada una, igual que con nvim, para que un fichero
+# nuevo dentro (un skin de k9s, por ejemplo) no requiera tocar este script.
+stamp=$(date +%Y%m%d-%H%M%S)
+mkdir -p "$HOME/.config"
+
+for tool in "${TOOLS[@]}"; do
+  src="$CONFIG_SRC/$tool"
+  dest="$HOME/.config/$tool"
+
+  if [[ ! -d "$src" ]]; then
+    echo "⏭️  $tool no tiene config en el repo, solo se instaló la herramienta"
+    continue
+  fi
+
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    echo "⚠️  $dest existe y no es un symlink → backup en $dest.backup-$stamp"
+    mv "$dest" "$dest.backup-$stamp"
+  fi
+
+  ln -sfn "$src" "$dest"
+  echo "🔗 $dest -> $src"
+done
+
+echo "✅ Herramientas de CLI instaladas y configuradas"
