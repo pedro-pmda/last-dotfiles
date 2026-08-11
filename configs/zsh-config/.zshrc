@@ -139,7 +139,6 @@ if [[ "$TERM_PROGRAM" == "kiro" ]] && command -v kiro &>/dev/null; then
   . "$(kiro --locate-shell-integration-path zsh)"
 fi
 
-alias glow="glow --style light -p"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
