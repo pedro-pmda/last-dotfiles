@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run-os: any
-# run-desc: 🛠  Configs de CLI: k9s, htop, glow, direnv
+# run-desc: 🛠  Configs de CLI: k9s, htop, glow
 
 set -euo pipefail
 
@@ -20,7 +20,6 @@ TOOLS=(
   k9s
   htop
   glow
-  direnv
 )
 
 stamp=$(date +%Y%m%d-%H%M%S)

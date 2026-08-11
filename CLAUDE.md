@@ -12,7 +12,7 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 | `runs/infra/` | `install-k3s` (k3d cluster), `switch-cluster` (kubectl context) |
 | `runs/access/` | `repokeys` — loads every private key in `~/.ssh` into an existing ssh-agent |
 | `runs/utils/` | `ready-tmux`, `tmux-sessionizer`, `install-git-hooks` |
-| `configs/` | **Everything here is symlinked** to where the tool expects it — editing a file here edits the live config. `zsh-config/` (`.zshrc` + `.p10k.zsh`), `nvim-config/`, `tmux-config/`, `tmux-examples/`, `ghostty-config/`, `git-config/`, `cli-config/` (k9s, htop, glow, direnv), `hammerspoon-config/` (macOS), `wm-linux-config/` (Linux). Full destination table in `README.md`. |
+| `configs/` | **Everything here is symlinked** to where the tool expects it — editing a file here edits the live config. `zsh-config/` (`.zshrc` + `.p10k.zsh`), `nvim-config/`, `tmux-config/`, `tmux-examples/`, `ghostty-config/`, `git-config/`, `cli-config/` (k9s, htop, glow), `hammerspoon-config/` (macOS), `wm-linux-config/` (Linux). Full destination table in `README.md`. |
 | `hooks/` | Git hooks installed into a **target** repo by `install-git-hooks`. zooplus conventions (`ZOOB-*` Jira IDs, `MAJOR\|MINOR\|REVISION \| ...`, `ui/` Prettier+ESLint). Not meant to run on this repo. |
 
 ## Running tasks

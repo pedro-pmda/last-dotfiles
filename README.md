@@ -137,7 +137,7 @@ Sourced by the installers, never executed on its own.
 | `install-wm-linux` | Linux only (guard-skips on macOS). Installs `lua-wm`, a custom Lua window-manager daemon that's the Hammerspoon equivalent for Linux: apt packages (`lua5.3`, `lgi`, keybinder/wnck/notify GTK bindings), symlinks `~/.config/lua-wm/{init.lua,app_config.lua}` from `configs/wm-linux-config/`, and registers a `systemd --user` service plus an XDG autostart entry. | Interactive profile picker, same pattern as `install-hammerspoon`. `Shift+F12`-equivalent reload is `systemctl --user restart lua-wm`. The Lua interpreter and the multiarch triplet for `lgi` are discovered, not hardcoded, so it also comes up on arm64. Works without a systemd user session (the XDG autostart entry is the primary boot path anyway). |
 | `install-git-config` | **Symlinks** `~/.gitconfig`, `~/.gitconfig_kaizen`, `~/.gitconfig_zooplus` and `~/.gitignore_global` to `configs/git-config/`. | Backs up any real file it replaces. |
 | `install-ghostty` | Installs the Ghostty cask on macOS, then **symlinks** `~/.config/ghostty/config`. | Also moves macOS's `~/Library/Application Support/com.mitchellh.ghostty/config` aside, because it takes priority over the XDG path. On Linux there's no official apt package, so it points you at the download page and links the config anyway. |
-| `install-cli-configs` | **Symlinks** `~/.config/{k9s,htop,glow,direnv}` to `configs/cli-config/`. | Directory-level links, like nvim, so a new file inside needs no script change. |
+| `install-cli-configs` | **Symlinks** `~/.config/{k9s,htop,glow}` to `configs/cli-config/`. | Directory-level links, like nvim, so a new file inside needs no script change. |
 
 ### `runs/infra/`
 
@@ -177,7 +177,7 @@ edits the live config — no reinstall. Where a file lands, and who links it:
 | `tmux-examples/.ready-tmux-default` | `~/.ready-tmux` | `install-tmux` |
 | `ghostty-config/config` | `~/.config/ghostty/config` | `install-ghostty` |
 | `git-config/.gitconfig` + the two identities + `.gitignore_global` | `~/` | `install-git-config` |
-| `cli-config/{k9s,htop,glow,direnv}/` | `~/.config/<tool>/` | `install-cli-configs` |
+| `cli-config/{k9s,htop,glow}/` | `~/.config/<tool>/` | `install-cli-configs` |
 | `hammerspoon-config/{init.lua,profiles/<one>.lua}` | `~/.hammerspoon/{init.lua,app_config.lua}` | `install-hammerspoon` |
 | `wm-linux-config/{init.lua,profiles/<one>.lua}` | `~/.config/lua-wm/{init.lua,app_config.lua}` | `install-wm-linux` |
 
@@ -338,11 +338,15 @@ ghostty +show-config
 ### `cli-config/`
 
 Small configs for terminal tools, one directory each, linked to `~/.config/<tool>/`: `k9s`
-(+ its `aliases.yaml`), `htop`, `glow`, `direnv`.
+(+ its `aliases.yaml`), `htop`, `glow`.
 
 `k9s`'s `screenDumpDir` was removed — it hardcoded `/Users/<user>/Library/...`, which is wrong on
-Linux; k9s falls back to its own per-platform default. Not included: `lazygit` (empty config),
-`neofetch` / `zellij` / `bpytop` (untouched default templates).
+Linux; k9s falls back to its own per-platform default.
+
+Not included, deliberately: `lazygit` (empty config), `neofetch` / `zellij` / `bpytop` (untouched
+default templates), and `direnv` — its `direnv.toml` isn't a personal preference at all, it's a
+`warn_timeout` line written by PostHog's Flox activation hook that references a path inside that
+project. Versioning a file another tool regenerates only invites conflicts.
 
 ### `git-config/`
 
