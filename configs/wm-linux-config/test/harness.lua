@@ -71,7 +71,7 @@ local DESKTOP_APPS = {
   { name = "Slack",                  cls = "slack" },
   { name = "Obsidian",               cls = "obsidian" },
   { name = "Ghostty",                cls = "ghostty" },
-  { name = "OpenLens",               cls = "openlens" },
+  { name = "Freelens",               cls = "freelens" },
 }
 
 local Gio = {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run-os: any
-# run-desc: 🛠  Herramientas de CLI: k9s, htop, glow (+ sus configs)
+# run-desc: 🛠  CLI: k9s, htop, glow, bat, lsd, lazygit, direnv, tree-sitter
 
 set -euo pipefail
 
@@ -23,22 +23,32 @@ source "$LIB_DIR/brew-env.sh"
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 CONFIG_SRC="$REPO_ROOT/configs/cli-config"
 
-# El nombre sirve de tres cosas: formula de brew, binario y carpeta de config.
+# formula:binario:carpeta-de-config
+# El binario no siempre se llama como la formula (tree-sitter-cli → tree-sitter),
+# y no todas traen config versionada: las que no, solo se instalan.
 TOOLS=(
-  k9s
-  htop
-  glow
+  "k9s:k9s:k9s"
+  "htop:htop:htop"
+  "glow:glow:glow"
+  "bat:bat:"
+  "lsd:lsd:"
+  "lazygit:lazygit:"
+  "direnv:direnv:"
+  "tree-sitter-cli:tree-sitter:"
 )
 
 # --- 1. Instalar lo que falte -------------------------------------------------
 # Se comprueba con `command -v`, no con `brew list`: si ya tienes la herramienta
 # por apt o compilada, se respeta en vez de instalar una segunda copia.
 missing=()
-for tool in "${TOOLS[@]}"; do
-  if command -v "$tool" &>/dev/null; then
-    echo "✅ $tool ya está instalado ($(command -v "$tool"))"
+for entry in "${TOOLS[@]}"; do
+  formula="${entry%%:*}"
+  rest="${entry#*:}"
+  binary="${rest%%:*}"
+  if command -v "$binary" &>/dev/null; then
+    echo "✅ $binary ya está instalado ($(command -v "$binary"))"
   else
-    missing+=("$tool")
+    missing+=("$formula")
   fi
 done
 
@@ -54,12 +64,15 @@ fi
 stamp=$(date +%Y%m%d-%H%M%S)
 mkdir -p "$HOME/.config"
 
-for tool in "${TOOLS[@]}"; do
-  src="$CONFIG_SRC/$tool"
-  dest="$HOME/.config/$tool"
+for entry in "${TOOLS[@]}"; do
+  cfg="${entry##*:}"
+  [[ -z "$cfg" ]] && continue   # sin config versionada: nada que enlazar
+
+  src="$CONFIG_SRC/$cfg"
+  dest="$HOME/.config/$cfg"
 
   if [[ ! -d "$src" ]]; then
-    echo "⏭️  $tool no tiene config en el repo, solo se instaló la herramienta"
+    echo "⏭️  $cfg no tiene config en el repo, solo se instaló la herramienta"
     continue
   fi
 

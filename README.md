@@ -90,11 +90,15 @@ whatever order the filesystem happens to return:
 4. `install-nvim`
 5. `install-tmux`
 6. `install-docker`
-7. `install-git-config`
-8. `install-ghostty`
-9. `install-cli-tools`
-10. `install-hammerspoon` (macOS; guard-skips on Linux)
-11. `install-wm-linux` (Linux; guard-skips on macOS)
+7. `install-kubernetes`
+8. `install-git-config`
+9. `install-ghostty`
+10. `install-cli-tools`
+11. `install-chromium`
+12. `install-chrome-canary`
+13. `install-freelens`
+14. `install-hammerspoon` (macOS; guard-skips on Linux)
+15. `install-wm-linux` (Linux; guard-skips on macOS)
 
 `runs/infra/`, `runs/access/` and `runs/utils/` need an explicit filter, because they're imperative
 or interactive rather than idempotent installers: `install-k3s` creates a cluster, `tmux-sessionizer`
@@ -128,7 +132,7 @@ Sourced by the installers, never executed on its own.
 | Script | What it does | Notes |
 |---|---|---|
 | `install-home-brew` | Installs Homebrew if `brew` isn't on `PATH`. Works on macOS and Linux. | Idempotent. Run this first. |
-| `install-zsh` | **Symlinks** `~/.zshrc` and `~/.p10k.zsh` to `configs/zsh-config/` first, then installs zsh + `fzf`, `kubectx`, `thefuck`, `autojump`, Antigen and `kube-ps1`, and sets zsh as the default shell. | Backs up any real (non-symlink) `~/.zshrc` it would replace. Editing `configs/zsh-config/.zshrc` edits the live shell config directly. The symlink goes first on purpose: it's the one step that must not be left half-done. `chsh` registers the shell in `/etc/shells` if it isn't there (Homebrew's zsh never is), and degrades to a warning instead of aborting. |
+| `install-zsh` | **Symlinks** `~/.zshrc` and `~/.p10k.zsh` to `configs/zsh-config/` first, then installs zsh + `fzf`, `thefuck`, `autojump`, the MesloLGS Nerd Font, Antigen and `kube-ps1`, and sets zsh as the default shell. | Backs up any real (non-symlink) `~/.zshrc` it would replace. Editing `configs/zsh-config/.zshrc` edits the live shell config directly. The symlink goes first on purpose: it's the one step that must not be left half-done. `chsh` registers the shell in `/etc/shells` if it isn't there (Homebrew's zsh never is), and degrades to a warning instead of aborting. |
 | `install-nvim` | `brew install neovim`, then **symlinks** `~/.config/nvim` to `configs/nvim-config/`. | Backs up any real (non-symlink) `~/.config/nvim` it would replace. |
 | `install-tmux` | `brew install tmux`, then **symlinks** `~/.config/tmux/{tmux.conf,clipboard.sh}` and `~/.ready-tmux`. On Linux also installs xclip + wl-clipboard. | Prefix remapped to `C-a`, vi copy-mode, `hjkl` pane navigation, `prefix + r` reloads. The clipboard command is chosen at yank time by `clipboard.sh`, so the same conf works on macOS, X11 and Wayland. |
 | `install-docker` | macOS: `brew install --cask docker-desktop` and opens Docker Desktop. Linux: installs Docker Engine via the official `get.docker.com` script, enables the systemd service (if `systemctl` exists), and adds you to the `docker` group. | Skips if `docker` is already on `PATH`. On Linux you need to log out/in for the group change to apply. |
@@ -137,7 +141,11 @@ Sourced by the installers, never executed on its own.
 | `install-wm-linux` | Linux only (guard-skips on macOS). Installs `lua-wm`, a custom Lua window-manager daemon that's the Hammerspoon equivalent for Linux: apt packages (`lua5.3`, `lgi`, keybinder/wnck/notify GTK bindings), symlinks `~/.config/lua-wm/{init.lua,app_config.lua}` from `configs/wm-linux-config/`, and registers a `systemd --user` service plus an XDG autostart entry. | Interactive profile picker, same pattern as `install-hammerspoon`. `Shift+F12`-equivalent reload is `systemctl --user restart lua-wm`. The Lua interpreter and the multiarch triplet for `lgi` are discovered, not hardcoded, so it also comes up on arm64. Works without a systemd user session (the XDG autostart entry is the primary boot path anyway). |
 | `install-git-config` | **Symlinks** `~/.gitconfig`, `~/.gitconfig_kaizen`, `~/.gitconfig_zooplus` and `~/.gitignore_global` to `configs/git-config/`. | Backs up any real file it replaces. |
 | `install-ghostty` | Installs the Ghostty cask on macOS, then **symlinks** `~/.config/ghostty/config`. | Also moves macOS's `~/Library/Application Support/com.mitchellh.ghostty/config` aside, because it takes priority over the XDG path. On Linux there's no official apt package, so it points you at the download page and links the config anyway. |
-| `install-cli-tools` | Installs `k9s`, `htop` and `glow` with Homebrew if they're missing, then **symlinks** `~/.config/{k9s,htop,glow}` to `configs/cli-config/`. | Checks with `command -v`, so an apt-installed or hand-compiled copy is respected instead of installing a second one. Directory-level links, like nvim, so a new file inside needs no script change. |
+| `install-cli-tools` | Installs `k9s`, `htop`, `glow`, `bat`, `lsd`, `lazygit`, `direnv` and `tree-sitter-cli` with Homebrew if missing, then **symlinks** the configs that exist in the repo (`k9s`, `htop`, `glow`). | Checks with `command -v`, so an apt-installed or hand-compiled copy is respected instead of installing a second one. Entries are `formula:binary:config-dir`, because the binary isn't always named after the formula (`tree-sitter-cli` → `tree-sitter`) and not every tool has a versioned config. |
+| `install-kubernetes` | `kubectl`, `kubectx`/`kubens` and `helm`. | Nothing installed `kubectl` before, even though `.zshrc` has five aliases using it and `kube_ps1` in the prompt. `kubectx` moved here from `install-zsh`, where it had ended up only because its aliases live in the shell config. |
+| `install-chromium` | Chromium: cask on macOS, apt on Linux (tries `chromium`, then `chromium-browser`). | The window profiles bind a key to it and open a tab set in it, but nothing installed it. |
+| `install-chrome-canary` | Google Chrome Canary via cask on macOS. | Canary doesn't exist on Linux; there the equivalent channel is `google-chrome-unstable`, which needs Google's apt repo. The script prints the commands rather than adding a third-party repo behind your back. |
+| `install-freelens` | Freelens (the maintained successor to OpenLens): cask on macOS, official `.deb` from GitHub releases on Linux (arch-matched, sha256 verified before `sudo apt install`). | On macOS it needs your password to copy into `/Applications`. |
 
 ### `runs/infra/`
 
@@ -293,6 +301,11 @@ Tests for all this live in `configs/wm-linux-config/test/` — see its README.
 sources it, so without versioning it a new machine started with p10k's setup wizard instead of your
 prompt).
 
+`.p10k.zsh` sets `POWERLEVEL9K_MODE=nerdfont-v3`, so it needs a Nerd Font to render its icons —
+otherwise the prompt is full of tofu boxes. `install-zsh` installs MesloLGS NF for you: the cask on
+macOS, and a download into `~/.local/share/fonts` + `fc-cache` on Linux, where casks don't exist.
+**You still have to select it as your terminal's font** (in Ghostty: `font-family = MesloLGS NF`).
+
 The current shell config: Antigen + oh-my-zsh, Powerlevel10k, autosuggestions/completions/syntax-highlighting, `z`, fzf-tab, `kube-ps1` in the prompt, nvm, SDKMAN, and the aliases below.
 
 | Alias | Expands to |
@@ -338,7 +351,8 @@ ghostty +show-config
 ### `cli-config/`
 
 Small configs for terminal tools, one directory each, linked to `~/.config/<tool>/`: `k9s`
-(+ its `aliases.yaml`), `htop`, `glow`. `install-cli-tools` installs the tools themselves too — the
+(+ its `aliases.yaml`), `htop`, `glow` — `bat`, `lsd`, `lazygit`, `direnv` and `tree-sitter-cli` are
+installed but have no versioned config yet. `install-cli-tools` installs the tools themselves too — the
 config and the thing it configures arrive together, so you can't end up with a perfectly linked
 `~/.config/glow` and no glow.
 

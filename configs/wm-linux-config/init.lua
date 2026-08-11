@@ -264,9 +264,23 @@ end
 
 -- ─── Browser tab opening (replaces AppleScript) ─────────────────────────────
 
+-- Debian empaqueta el binario como 'chromium' y Ubuntu como 'chromium-browser',
+-- así que se prueban los candidatos y se usa el primero que exista.
+local function firstAvailable(candidates)
+    for _, bin in ipairs(candidates) do
+        local f = io.popen("command -v " .. bin .. " 2>/dev/null")
+        if f then
+            local found = f:read("*a")
+            f:close()
+            if found and found:match("%S") then return bin end
+        end
+    end
+    return nil
+end
+
 local browserBinary = {
-    ["Google Chrome"] = "google-chrome",
-    ["Chromium"]      = "chromium-browser",
+    ["Google Chrome"] = firstAvailable({ "google-chrome", "google-chrome-stable" }),
+    ["Chromium"]      = firstAvailable({ "chromium", "chromium-browser" }),
 }
 
 -- Las URLs vienen del profile, pero acaban en una línea de shell: sin citarlas,

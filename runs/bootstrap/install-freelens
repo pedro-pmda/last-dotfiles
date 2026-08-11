@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: 🔎 Freelens — IDE de Kubernetes (sucesor mantenido de OpenLens)
+
+set -euo pipefail
+
+GH_REPO="freelensapp/freelens"
+
+if command -v freelens &>/dev/null || [[ -d "/Applications/Freelens.app" ]]; then
+  echo "✅ Freelens ya está instalado."
+  exit 0
+fi
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
+  echo "📦 Instalando Freelens con Homebrew..."
+  brew install --cask freelens
+  echo "✅ Freelens instalado"
+  exit 0
+fi
+
+# --- Linux: no hay paquete en apt, pero sí .deb oficial en las releases -------
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/apt.sh"
+require_apt
+
+case "$(uname -m)" in
+  x86_64)          arch="amd64" ;;
+  aarch64|arm64)   arch="arm64" ;;
+  *) echo "❌ Arquitectura no soportada por Freelens: $(uname -m)"; exit 1 ;;
+esac
+
+echo "🔍 Buscando la última release de Freelens ($arch)..."
+version=$(curl -fsSL "https://api.github.com/repos/$GH_REPO/releases/latest" \
+  | sed -n 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/p' | head -1)
+
+if [[ -z "$version" ]]; then
+  echo "❌ No se pudo averiguar la última versión desde la API de GitHub"
+  exit 1
+fi
+
+deb="Freelens-${version}-linux-${arch}.deb"
+url="https://github.com/$GH_REPO/releases/download/v${version}/${deb}"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+echo "⬇️  Descargando $deb"
+curl -fsSL "$url"        -o "$tmp/$deb"
+curl -fsSL "$url.sha256" -o "$tmp/$deb.sha256"
+
+# El .deb viene con su checksum publicado: se comprueba antes de instalarlo con
+# sudo, que es justo el momento en el que conviene estar seguro de lo que corres.
+echo "🔐 Verificando el checksum..."
+expected=$(awk '{print $1}' "$tmp/$deb.sha256")
+actual=$(sha256sum "$tmp/$deb" | awk '{print $1}')
+if [[ "$expected" != "$actual" ]]; then
+  echo "❌ El checksum no coincide. Esperado: $expected  Obtenido: $actual"
+  exit 1
+fi
+echo "   ✅ coincide"
+
+echo "📦 Instalando $deb..."
+sudo apt-get install -y "$tmp/$deb"
+
+echo "✅ Freelens $version instalado"

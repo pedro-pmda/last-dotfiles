@@ -19,9 +19,13 @@ BOOTSTRAP_ORDER=(
   install-nvim
   install-tmux
   install-docker
+  install-kubernetes
   install-git-config
   install-ghostty
   install-cli-tools
+  install-chromium
+  install-chrome-canary
+  install-freelens
   install-hammerspoon
   install-wm-linux
 )

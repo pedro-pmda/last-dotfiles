@@ -16,7 +16,7 @@ CONFIG_DEST="$HOME/.zshrc"
 P10K_SRC="$REPO_ROOT/configs/zsh-config/.p10k.zsh"
 P10K_DEST="$HOME/.p10k.zsh"
 
-echo "🍺 [1/7] Verificando instalación de Homebrew..."
+echo "🍺 [1/8] Verificando instalación de Homebrew..."
 if ! ensure_brew --optional; then
   echo "📦 Instalando Homebrew..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -28,7 +28,7 @@ fi
 # Los symlinks van antes de instalar nada: es lo único que este script no puede
 # dejar a medias. Antes era el paso 6 de 8, así que un fallo de brew en el paso 3
 # abortaba con set -e y dejaba la máquina sin ~/.zshrc enlazado.
-echo "🔗 [2/7] Enlazando ~/.zshrc y ~/.p10k.zsh..."
+echo "🔗 [2/8] Enlazando ~/.zshrc y ~/.p10k.zsh..."
 stamp=$(date +%Y%m%d-%H%M%S)
 
 link() { # link <origen> <destino>
@@ -46,7 +46,7 @@ link "$CONFIG_SRC" "$CONFIG_DEST"
 # nueva, así que p10k arranca su asistente en vez de tu prompt.
 link "$P10K_SRC" "$P10K_DEST"
 
-echo "🔍 [3/7] Verificando instalación de Zsh..."
+echo "🔍 [3/8] Verificando instalación de Zsh..."
 if ! command -v zsh &> /dev/null; then
   echo "📦 Instalando Zsh..."
   if [[ "$(uname -s)" == "Linux" ]]; then
@@ -60,13 +60,48 @@ else
   echo "✅ Zsh ya está instalado."
 fi
 
-echo "🔧 [4/7] Instalando herramientas necesarias con Homebrew..."
-brew install fzf kubectx thefuck autojump
+echo "🔧 [4/8] Instalando herramientas necesarias con Homebrew..."
+brew install fzf thefuck autojump
 # --all: sin él, el instalador de fzf hace tres preguntas y se queda esperando
 # stdin dentro de un ./run desatendido.
 "$(brew --prefix fzf)/install" --all
 
-echo "📦 [5/7] Instalando Antigen..."
+# La fuente que exige el prompt. configs/zsh-config/.p10k.zsh trae
+# POWERLEVEL9K_MODE=nerdfont-v3, así que sin una Nerd Font instalada el prompt
+# sale con cuadraditos en lugar de iconos.
+echo "🔤 [5/8] Instalando la Nerd Font que necesita Powerlevel10k..."
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if brew list --cask font-meslo-lg-nerd-font &>/dev/null; then
+    echo "✅ MesloLG Nerd Font ya está instalada."
+  else
+    brew install --cask font-meslo-lg-nerd-font
+  fi
+else
+  # En Linux no hay casks. Se bajan las cuatro variantes que recomienda p10k
+  # desde su propio repositorio de medios.
+  FONT_DIR="$HOME/.local/share/fonts"
+  mkdir -p "$FONT_DIR"
+  base="https://github.com/romkatv/powerlevel10k-media/raw/master"
+  installed=0
+  for variant in "Regular" "Bold" "Italic" "Bold%20Italic"; do
+    name="MesloLGS NF ${variant//\%20/ }.ttf"
+    if [[ -f "$FONT_DIR/$name" ]]; then
+      continue
+    fi
+    echo "   ⬇️  $name"
+    curl -fsSL "$base/MesloLGS%20NF%20$variant.ttf" -o "$FONT_DIR/$name"
+    installed=$((installed + 1))
+  done
+  if [[ $installed -gt 0 ]]; then
+    command -v fc-cache &>/dev/null && fc-cache -f "$FONT_DIR" >/dev/null
+    echo "✅ $installed variantes instaladas en $FONT_DIR"
+  else
+    echo "✅ MesloLGS NF ya estaba instalada."
+  fi
+fi
+echo "   ⚠️  Selecciónala como fuente en tu terminal (en Ghostty: font-family = MesloLGS NF)"
+
+echo "📦 [6/8] Instalando Antigen..."
 if [[ -s "$HOME/.antigen.zsh" ]]; then
   echo "✅ Antigen ya está instalado."
 else
@@ -79,14 +114,14 @@ else
   fi
 fi
 
-echo "☸️ [6/7] Clonando kube-ps1..."
+echo "☸️ [7/8] Clonando kube-ps1..."
 if [[ -d "$HOME/.kube-ps1" ]]; then
   echo "✅ kube-ps1 ya existe."
 else
   git clone https://github.com/jonmosco/kube-ps1.git "$HOME/.kube-ps1"
 fi
 
-echo "📤 [7/7] Comprobando si Zsh es tu shell por defecto..."
+echo "📤 [8/8] Comprobando si Zsh es tu shell por defecto..."
 zsh_path="$(command -v zsh)"
 
 if [[ "$SHELL" == "$zsh_path" ]]; then

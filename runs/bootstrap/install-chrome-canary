@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: 🐤 Google Chrome Canary — canal de pruebas (mac-work lo usa en Shift+F1)
+
+set -euo pipefail
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if [[ -d "/Applications/Google Chrome Canary.app" ]]; then
+    echo "✅ Google Chrome Canary ya está instalado."
+    exit 0
+  fi
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
+  echo "📦 Instalando Google Chrome Canary con Homebrew..."
+  brew install --cask google-chrome@canary
+  echo "✅ Google Chrome Canary instalado"
+else
+  # Canary solo existe para macOS y Windows. El canal equivalente en Linux es
+  # 'unstable' (lo que Google llama Dev), y vive en su propio repositorio apt.
+  # No se añade aquí de forma automática: meter un repositorio de terceros en el
+  # sistema es una decisión que merece ser explícita, no un efecto secundario de
+  # un bootstrap.
+  if command -v google-chrome-unstable &>/dev/null; then
+    echo "✅ google-chrome-unstable (el equivalente en Linux) ya está instalado."
+    exit 0
+  fi
+
+  echo "⏭️  Chrome Canary no existe en Linux; el canal equivalente es 'unstable'."
+  echo "    Requiere añadir el repositorio de Google. Si lo quieres:"
+  echo
+  echo "      curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \\"
+  echo "        | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg"
+  echo "      echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg]' \\"
+  echo "           'https://dl.google.com/linux/chrome/deb/ stable main' \\"
+  echo "        | sudo tee /etc/apt/sources.list.d/google-chrome.list"
+  echo "      sudo apt-get update && sudo apt-get install -y google-chrome-unstable"
+fi

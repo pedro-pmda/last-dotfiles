@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: ☸️  Kubernetes CLI: kubectl, kubectx/kubens y helm
+
+set -euo pipefail
+
+# kubectl no lo instalaba nadie, pese a que el .zshrc tiene cinco alias que lo
+# usan (k, kgp, kaf, kpfbd) y kube_ps1 metido en el prompt, y a que install-k3s
+# termina diciéndote que verifiques con `kubectl get nodes`.
+#
+# kubectx viene de install-zsh, donde estaba fuera de sitio: es una herramienta de
+# Kubernetes que acabó ahí solo porque los alias kc/kn viven en el .zshrc. Y sin
+# kubectl no sirve de nada, así que su sitio es este.
+#
+# Las tres son formulae, que existen igual en macOS y en Linuxbrew.
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+
+# formula:binario — el nombre del paquete no siempre es el del comando
+TOOLS=(
+  "kubernetes-cli:kubectl"
+  "kubectx:kubectx"
+  "helm:helm"
+)
+
+missing=()
+for entry in "${TOOLS[@]}"; do
+  formula="${entry%%:*}"
+  binary="${entry##*:}"
+  if command -v "$binary" &>/dev/null; then
+    echo "✅ $binary ya está instalado ($(command -v "$binary"))"
+  else
+    missing+=("$formula")
+  fi
+done
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+  ensure_brew
+  echo "📦 Instalando con Homebrew: ${missing[*]}"
+  brew install "${missing[@]}"
+fi
+
+echo "✅ Herramientas de Kubernetes listas"
+echo "   Alias del .zshrc: k, kgp, kaf, kc (kubectx), kn (kubens)"

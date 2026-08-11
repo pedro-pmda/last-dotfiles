@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: 🌐 Chromium — navegador (lo lanzan los perfiles de ventanas)
+
+set -euo pipefail
+
+# Los perfiles de Hammerspoon y lua-wm tienen una tecla para Chromium y abren en
+# él un juego de pestañas, pero nadie lo instalaba: en una máquina recién hecha
+# esa tecla no hacía nada.
+
+if command -v chromium &>/dev/null || command -v chromium-browser &>/dev/null \
+   || [[ -d "/Applications/Chromium.app" ]]; then
+  echo "✅ Chromium ya está instalado."
+  exit 0
+fi
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
+  echo "📦 Instalando Chromium con Homebrew..."
+  brew install --cask chromium
+else
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/apt.sh"
+  # Debian empaqueta 'chromium'; Ubuntu 'chromium-browser'. Se prueba en ese orden.
+  if apt-cache show chromium &>/dev/null; then
+    apt_install chromium
+  else
+    apt_install chromium-browser
+  fi
+fi
+
+echo "✅ Chromium instalado"
