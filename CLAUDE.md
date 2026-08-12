@@ -53,7 +53,7 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 - Cross-platform scripts follow one of two idioms, matching `install-home-brew` / `install-wm-linux`:
   1. **Branch inside one script** with `[[ "$(uname -s)" == "Linux" ]]` when both OSes need real (if different) logic — e.g. `install-docker`, `install-zsh`, `install-tmux`. (`install-k3s` has no `uname` at all: k3d and Docker behave the same either way.)
   2. **Guard-and-skip, one script per OS** when the tool itself only exists on one platform — e.g. `install-hammerspoon` (Darwin-only) / `install-wm-linux` (Linux-only), a symmetric pair.
-- Every script derives the repo root from `${BASH_SOURCE[0]}`. Only the `.zshrc` aliases hardcode `~/last-dotfiles`.
+- Every script derives the repo root from `${BASH_SOURCE[0]}`. The `.zshrc` aliases derive it too, via `DOTFILES_ROOT` (resolved from the `~/.zshrc` symlink target) — they used to hardcode `~/last-dotfiles`, which broke for anyone who clones the repo elsewhere (e.g. `~/kaizen/last-dotfiles`).
 - Third-party GUI apps on Linux (`install-obsidian`, `install-spotify`) install via **Flatpak/Flathub**, not snap — Linux Mint blocks snapd by default (`nosnap.pref`) but ships Flatpak enabled out of the box. macOS side still uses `brew install --cask`.
 - Commits: Conventional Commits + emoji — `feat(hammerspoon): 🎯 update config layout`, `fix(zsh): 🐛 ...`.
 

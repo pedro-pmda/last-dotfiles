@@ -71,6 +71,12 @@ setopt INC_APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_FIND_NO_DUPS E
 setopt AUTO_CD
 
 # ─── Alias útiles ───────────────────────────────────────────────
+# Se deriva del propio symlink ~/.zshrc en vez de asumir ~/last-dotfiles:
+# install-zsh puede clonar el repo en cualquier ruta (p.ej. ~/kaizen/last-dotfiles).
+# :A es el resolutor de symlinks nativo de zsh (equivalente a `readlink -f`)
+# — evita depender de GNU coreutils, que macOS no trae (BSD readlink no soporta -f).
+DOTFILES_ROOT="${${:-$HOME/.zshrc}:A:h:h:h}"
+
 alias k='kubectl'
 alias kgp='kubectl get pods'
 alias kaf='kubectl apply -f'
@@ -80,13 +86,13 @@ alias gst='git status'
 alias gl='git log --oneline --graph --decorate'
 alias cls='clear'
 alias tf='terraform'
-alias kprod="$HOME/last-dotfiles/runs/infra/switch-cluster arn:aws:eks:eu-central-1:480143891137:cluster/zoobrain-eks-prod"
-alias kdev="$HOME/last-dotfiles/runs/infra/switch-cluster arn:aws:eks:eu-central-1:880682651209:cluster/zoobrain-eks-dev"
+alias kprod="$DOTFILES_ROOT/runs/infra/switch-cluster arn:aws:eks:eu-central-1:480143891137:cluster/zoobrain-eks-prod"
+alias kdev="$DOTFILES_ROOT/runs/infra/switch-cluster arn:aws:eks:eu-central-1:880682651209:cluster/zoobrain-eks-dev"
 alias kpfbd="kubectl -n zoobrain-system port-forward tcp-forwarder-zoobrain-web 5432:5432 > /dev/null 2>&1 &"
-alias repokeys="$HOME/last-dotfiles/runs/access/repokeys"
-alias run="$HOME/last-dotfiles/run"
-alias session="$HOME/last-dotfiles/runs/utils/tmux-sessionizer"
-alias ready-tmux="$HOME/last-dotfiles/runs/utils/ready-tmux"
+alias repokeys="$DOTFILES_ROOT/runs/access/repokeys"
+alias run="$DOTFILES_ROOT/run"
+alias session="$DOTFILES_ROOT/runs/utils/tmux-sessionizer"
+alias ready-tmux="$DOTFILES_ROOT/runs/utils/ready-tmux"
 alias dpsp='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"'
 
 # ─── The Fuck (lazy-loaded to avoid init output) ────────────────
