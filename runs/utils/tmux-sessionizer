@@ -2,14 +2,21 @@
 # run-os: any
 # run-desc: 🔍 Elegir proyecto con fzf y abrir su sesión tmux
 
-# Selecciona un subdirectorio dentro de ~/kaizen usando fzf
-selected=$(find ~/kaizen ~/zooplus -mindepth 1 -maxdepth 1 -type d | fzf)
+# Selecciona un subdirectorio dentro de ~/kaizen o ~/zooplus usando fzf
+# (~/zooplus solo existe en máquinas de trabajo, no en todas)
+search_roots=()
+for root in ~/kaizen ~/zooplus; do
+	[[ -d "$root" ]] && search_roots+=("$root")
+done
+selected=$(find "${search_roots[@]}" -mindepth 1 -maxdepth 1 -type d | fzf)
 if [[ -z "$selected" ]]; then
 	exit 0
 fi
 
-# Normaliza el nombre de la sesión tmux
-selected_name=$(basename "$selected" | tr ":,/" "____")
+# Normaliza el nombre de la sesión tmux: además de ":,/", el "." también es
+# separador de target en tmux (sesión:ventana.pane), así que un nombre como
+# "pedropalazon.dev" rompe cualquier "-t $selected_name" posterior.
+selected_name=$(basename "$selected" | tr ":,/." "____")
 
 # Función para cambiar a la sesión tmux correspondiente
 switch_to() {
