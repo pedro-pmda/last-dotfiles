@@ -8,7 +8,7 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 |---|---|
 | `run` | Entrypoint. No filter → `runs/bootstrap/` in `BOOTSTRAP_ORDER`. With a filter → substring match over all of `runs/`. |
 | `runs/lib/` | Sourced helpers, **not executable** so `run` skips them: `brew-env.sh` (`ensure_brew`), `apt.sh` (`require_apt`, `apt_install`) |
-| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, kubernetes, git-config, ghostty, cli-tools, chromium, chrome-canary, freelens, hammerspoon (macOS), wm-linux (Linux). One installer per app, each handling both OSes. |
+| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, kubernetes, git-config, ghostty, cli-tools, chromium, chrome-canary, freelens, obsidian, spotify, hammerspoon (macOS), wm-linux (Linux). One installer per app, each handling both OSes. |
 | `runs/infra/` | `install-k3s` (k3d cluster), `switch-cluster` (kubectl context) |
 | `runs/access/` | `repokeys` — loads every private key in `~/.ssh` into an existing ssh-agent |
 | `runs/utils/` | `ready-tmux`, `tmux-sessionizer`, `install-git-hooks` |
@@ -54,6 +54,7 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
   1. **Branch inside one script** with `[[ "$(uname -s)" == "Linux" ]]` when both OSes need real (if different) logic — e.g. `install-docker`, `install-zsh`, `install-tmux`. (`install-k3s` has no `uname` at all: k3d and Docker behave the same either way.)
   2. **Guard-and-skip, one script per OS** when the tool itself only exists on one platform — e.g. `install-hammerspoon` (Darwin-only) / `install-wm-linux` (Linux-only), a symmetric pair.
 - Every script derives the repo root from `${BASH_SOURCE[0]}`. Only the `.zshrc` aliases hardcode `~/last-dotfiles`.
+- Third-party GUI apps on Linux (`install-obsidian`, `install-spotify`) install via **Flatpak/Flathub**, not snap — Linux Mint blocks snapd by default (`nosnap.pref`) but ships Flatpak enabled out of the box. macOS side still uses `brew install --cask`.
 - Commits: Conventional Commits + emoji — `feat(hammerspoon): 🎯 update config layout`, `fix(zsh): 🐛 ...`.
 
 ## Ghostty

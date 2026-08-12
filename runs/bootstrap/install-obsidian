@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: 🗒️ Obsidian — notas (Flatpak en Linux, cask en macOS)
+
+set -euo pipefail
+
+if [[ "$(uname -s)" == "Linux" ]]; then
+  if flatpak info md.obsidian.Obsidian &>/dev/null; then
+    echo "✅ Obsidian ya está instalado (Flatpak)."
+    exit 0
+  fi
+
+  command -v flatpak >/dev/null 2>&1 || { echo "❌ flatpak no está instalado."; exit 1; }
+
+  echo "📦 Añadiendo el remoto Flathub (si no existe)..."
+  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+  echo "📦 Instalando Obsidian vía Flatpak..."
+  flatpak install -y flathub md.obsidian.Obsidian
+
+  echo "✅ Obsidian instalado."
+else
+  if [[ -d "/Applications/Obsidian.app" ]]; then
+    echo "✅ Obsidian ya está instalado."
+    exit 0
+  fi
+
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
+  echo "📦 Instalando Obsidian con Homebrew..."
+  brew install --cask obsidian
+
+  echo "✅ Obsidian instalado."
+fi

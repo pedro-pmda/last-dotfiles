@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: 🎧 Spotify — música (Flatpak en Linux, cask en macOS)
+
+set -euo pipefail
+
+if [[ "$(uname -s)" == "Linux" ]]; then
+  if flatpak info com.spotify.Client &>/dev/null; then
+    echo "✅ Spotify ya está instalado (Flatpak)."
+    exit 0
+  fi
+
+  command -v flatpak >/dev/null 2>&1 || { echo "❌ flatpak no está instalado."; exit 1; }
+
+  echo "📦 Añadiendo el remoto Flathub (si no existe)..."
+  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+  echo "📦 Instalando Spotify vía Flatpak..."
+  flatpak install -y flathub com.spotify.Client
+
+  echo "✅ Spotify instalado."
+else
+  if [[ -d "/Applications/Spotify.app" ]]; then
+    echo "✅ Spotify ya está instalado."
+    exit 0
+  fi
+
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
+  echo "📦 Instalando Spotify con Homebrew..."
+  brew install --cask spotify
+
+  echo "✅ Spotify instalado."
+fi
