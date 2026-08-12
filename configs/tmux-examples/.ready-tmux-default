@@ -6,31 +6,14 @@ set -euo pipefail
 tmux rename-window editor
 tmux send-keys -t editor 'nvim .' C-m
 
-# Ventana 2: frontend
-# Layout: arriba 1 panel, abajo 2 paneles en vertical (izq/der)
-tmux new-window -n frontend -c "#{pane_current_path}"
-tmux split-window -v -t frontend                 # top/bottom
-tmux split-window -h -t frontend.1               # split bottom into left/right
+# Ventana 2: claude
+# Lanza Claude Code en su propia ventana
+tmux new-window -n claude -c "#{pane_current_path}"
+tmux send-keys -t claude 'claude' C-m
 
-# Ventana 3: backend
-# Layout: división horizontal con el panel superior un poco más pequeño
-# (superior ~30%, inferior ~70%)
-tmux new-window -n backend -c "#{pane_current_path}"
-tmux split-window -v -p 70 -t backend            # new bottom 70%, top ~30%
-
-# Ventana 4: infra
-# Layout: arriba 1 panel; abajo 3 paneles en vertical
-tmux new-window -n infra -c "#{pane_current_path}"
-tmux split-window -v -t infra                    # top/bottom
-tmux split-window -h -t infra.1                  # bottom -> 2 columns
-tmux split-window -h -t infra.2                  # right column -> split again (total 3)
-
-# Ventana 5: git
-# Layout: dos paneles en vertical; a la derecha ejecuta 'gl'
-tmux new-window -n git -c "#{pane_current_path}"
-tmux split-window -h -t git
-tmux send-keys -t git.1 'gl' C-m
+# Ventana 3: run
+# Libre — aquí arrancas tú el server (frontend o backend) cuando toque
+tmux new-window -n run -c "#{pane_current_path}"
 
 # Volver a editor
 tmux select-window -t editor
-
