@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# run-os: linux
+# run-desc: 📚 Montar el NAS de bibliotecas por CIFS (Calibre no funciona sobre GVFS)
+
+set -euo pipefail
+
+[[ "$(uname -s)" == "Linux" ]] || exit 0
+
+# GVFS (el montaje que usa Nautilus al "Conectar a servidor") no implementa flock
+# correctamente, y Calibre lo necesita para metadata.db: sin esto, Calibre marca la
+# biblioteca como "corrupta" aunque el archivo esté bien. La solución es un montaje
+# CIFS real a nivel de kernel. Detalle completo del diagnóstico en
+# ~/Downloads/calibre-nas-gvfs-corrupcion.md (fuera del repo).
+
+if command -v mount.cifs &>/dev/null; then
+  echo "✅ cifs-utils ya está instalado."
+else
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/apt.sh"
+  apt_install cifs-utils
+fi
+
+MOUNT_POINT="/mnt/bibliotecas"
+sudo mkdir -p "$MOUNT_POINT"
+
+# Las credenciales no se guardan nunca en el repo: viven solo en $HOME, con 600.
+CREDENTIALS_FILE="$HOME/.smbcredentials"
+if [[ -f "$CREDENTIALS_FILE" ]]; then
+  echo "✅ $CREDENTIALS_FILE ya existe, no se toca."
+else
+  echo "🔑 Credenciales del NAS (no se guardan en el repo, solo en $CREDENTIALS_FILE):"
+  read -r -p "   Usuario: " smb_user
+  read -r -s -p "   Contraseña: " smb_pass
+  echo
+  read -r -p "   Dominio [WORKGROUP]: " smb_domain
+  smb_domain="${smb_domain:-WORKGROUP}"
+
+  cat > "$CREDENTIALS_FILE" <<EOF
+username=$smb_user
+password=$smb_pass
+domain=$smb_domain
+EOF
+  chmod 600 "$CREDENTIALS_FILE"
+  echo "✅ $CREDENTIALS_FILE creado."
+fi
+
+# x-systemd.automount es lo que hace que "funcione siempre que abras Calibre" sin
+# montarlo a mano ni tenerlo montado de más: systemd monta el share la primera vez
+# que algo accede a /mnt/bibliotecas y lo desmonta tras un rato sin uso. _netdev,nofail
+# evitan que un NAS inalcanzable rompa el arranque.
+FSTAB_LINE="//nas.local/bibliotecas $MOUNT_POINT cifs credentials=$CREDENTIALS_FILE,uid=$(id -u),gid=$(id -g),vers=3.0,file_mode=0777,dir_mode=0777,x-systemd.automount,x-systemd.idle-timeout=600,_netdev,nofail 0 0"
+
+if grep -qF "$MOUNT_POINT" /etc/fstab 2>/dev/null; then
+  echo "✅ /etc/fstab ya tiene una entrada para $MOUNT_POINT, no se toca."
+else
+  echo "📝 Añadiendo $MOUNT_POINT a /etc/fstab..."
+  echo "$FSTAB_LINE" | sudo tee -a /etc/fstab > /dev/null
+  echo "✅ /etc/fstab actualizado."
+fi
+
+# daemon-reload regenera las unidades de systemd a partir del fstab, pero no las
+# arranca por sí solo — sin esto, la unidad de automount se queda "inactive (dead)"
+# hasta el próximo reboot. Se hace siempre (no solo al escribir el fstab), para que
+# volver a correr el script también sirva de "arréglamelo" si algo quedó a medias.
+sudo systemctl daemon-reload
+sudo systemctl start "$(systemd-escape --path --suffix=automount "$MOUNT_POINT")"
+
+echo
+echo "✅ Montaje CIFS listo. Se activa solo al acceder a $MOUNT_POINT (p. ej. desde Calibre)."
+echo "   Paso manual pendiente en Calibre (Preferences → Switch/create library),"
+echo "   repuntar cada biblioteca de la ruta gvfs a la ruta CIFS:"
+echo "     $MOUNT_POINT/El Placer de la Lectura"
+echo "     $MOUNT_POINT/El Artesano del Codigo"
