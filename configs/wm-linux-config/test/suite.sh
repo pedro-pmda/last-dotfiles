@@ -27,7 +27,7 @@ echo
 echo "─── B. Pantalla de portátil, 1512px + eDP presente (debe ir fullscreen) ───"
 run B 1512 1 "$WM_REPO/profiles/linux-personal.lua" check-laptop.lua
 echo
-echo "─── C. Dispatcher: WORK_MODE y RESET_LAYOUT ───"
+echo "─── C. Dispatcher: KAIZEN_MODE y RESET_LAYOUT ───"
 run C 3440 0 "$TEST_DIR/profile-modes.lua" check-dispatch.lua
 echo
 if [[ $fails -eq 0 ]]; then

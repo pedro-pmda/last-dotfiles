@@ -277,9 +277,11 @@ Reload after editing a profile with `systemctl --user restart lua-wm` (bound the
 `Shift+F12` reloads Hammerspoon on macOS). Logs: `journalctl --user -u lua-wm -f`. Currently only
 `profiles/linux-personal.lua` exists (no `linux-work.lua` counterpart yet).
 
-The `functionKeys` schema is identical to Hammerspoon's, and so is the action vocabulary
-(`WORK_MODE`, `KAIZEN_MODE`, `RESET_LAYOUT`, `EMOJI`, plus `RELOAD_WM` as a synonym of
-`RELOAD_HAMMERSPOON`). Geometry — the fraction table and the position table — is the same code.
+The `functionKeys` schema is identical to Hammerspoon's, but the action vocabulary is
+smaller: `KAIZEN_MODE`, `RESET_LAYOUT`, `EMOJI`, plus `RELOAD_WM` as a synonym of
+`RELOAD_HAMMERSPOON`. No `WORK_MODE` on Linux — `linux-personal.lua` is the only profile
+so far, so there's nothing to switch between. Geometry — the fraction table and the
+position table — is the same code.
 
 **The app *names* are not portable, though**, and can't be: on macOS they're `.app` names resolved
 through `hs.application`, on Linux they're the `Name=` field of a `.desktop` file matched against

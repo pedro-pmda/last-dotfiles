@@ -23,7 +23,7 @@ Necesita `luajit` (`brew install luajit`) — no hace falta Lua 5.3 ni estar en 
 |---|---|
 | **A** — 3440px, sin eDP | Reparte ventanas; el perfil no se muta; avisa "External screen"; las URLs van citadas al shell |
 | **B** — 1512px, con eDP | Todo a pantalla completa; **el perfil sigue sin mutarse** |
-| **C** — perfil sintético | `WORK_MODE` y `RESET_LAYOUT` se despachan como acciones y no como nombres de app |
+| **C** — perfil sintético | `KAIZEN_MODE` y `RESET_LAYOUT` se despachan como acciones y no como nombres de app |
 
 El escenario B es el importante. `adaptLayoutForCurrentScreen` escribía
 `position`/`width`/`height`/`vertical` **dentro de la tabla del perfil**, así que en

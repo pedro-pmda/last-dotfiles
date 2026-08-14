@@ -28,16 +28,24 @@ local appInfoIndex = {}
 
 local function buildAppIndex()
     for _, info in ipairs(Gio.DesktopAppInfo.get_all()) do
-        local name = info:get_name()
-        if name then
-            appInfoIndex[name] = info
-            local cls = info:get_startup_wm_class()
-            if cls and cls ~= "" then
-                wmClassIndex[name] = cls:lower()
-            else
-                -- Fallback: strip .desktop suffix from the app id
-                local id = info:get_id() or ""
-                wmClassIndex[name] = id:gsub("%.desktop$", ""):lower()
+        -- Sin este filtro, un .desktop oculto (NoDisplay=true, ej. helpers de
+        -- csd) con el mismo Name= que una app real pisa su entrada si se
+        -- enumera después: "Files" acababa apuntando a csd-automount en vez
+        -- de a Nemo. should_show() no vale: también mira OnlyShowIn, y
+        -- gnome-terminal.desktop trae "OnlyShowIn=GNOME;Unity;" — en Cinnamon
+        -- eso lo habría descartado sin estar oculto de verdad.
+        if not info:get_boolean("NoDisplay") then
+            local name = info:get_name()
+            if name then
+                appInfoIndex[name] = info
+                local cls = info:get_startup_wm_class()
+                if cls and cls ~= "" then
+                    wmClassIndex[name] = cls:lower()
+                else
+                    -- Fallback: strip .desktop suffix from the app id
+                    local id = info:get_id() or ""
+                    wmClassIndex[name] = id:gsub("%.desktop$", ""):lower()
+                end
             end
         end
     end
@@ -195,9 +203,9 @@ local function announceScreenMode()
     end
 end
 
--- Layout del modo activo. Lo actualizan workMode() y kaizenMode() para que
--- recolocar devuelva las ventanas al sitio del modo en el que estás.
-local currentLayout = config.workAppLayout
+-- Layout del modo activo. Lo actualiza kaizenMode() para que recolocar
+-- devuelva las ventanas al sitio del modo en el que estás.
+local currentLayout = config.kaizenAppLayout
 
 -- Coloca una app al pulsar su tecla, buscando su sitio en el layout del modo
 -- activo y, si no está ahí, en el de apps que solo se abren a mano.
@@ -301,18 +309,6 @@ local function openBrowserWithUrls(appName, urls)
     end
 end
 
-local function handleChrome()
-    if config.workChromeConfig then
-        openBrowserWithUrls("Google Chrome", config.workChromeConfig.urls)
-    end
-end
-
-local function handleChromium()
-    if config.workChromiumConfig then
-        openBrowserWithUrls("Chromium", config.workChromiumConfig.urls)
-    end
-end
-
 local function handleKaizenChrome()
     if config.kaizenChromeConfig then
         openBrowserWithUrls("Google Chrome", config.kaizenChromeConfig.urls)
@@ -326,30 +322,6 @@ local function handleKaizenChromium()
 end
 
 -- ─── Modes ───────────────────────────────────────────────────────────────────
-
-local function workMode()
-    notify("🧑🏾‍💻 Entering Work Mode...")
-    currentLayout = config.workAppLayout
-    announceScreenMode()
-    closeAllWindows()
-
-    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, function()
-        local ok, err = pcall(openAndArrange, config.workAppLayout)
-        if not ok then io.stderr:write("lua-wm openAndArrange error: " .. tostring(err) .. "\n") end
-        return false
-    end)
-
-    GLib.timeout_add(GLib.PRIORITY_DEFAULT, math.floor((config.appLaunchDelay + 6) * 1000),
-        function()
-            pcall(handleChrome)
-            pcall(handleChromium)
-            if config.foregroundApps then
-                bringAppsToFront(config.foregroundApps.work or {})
-            end
-            notify("🧑🏾‍💻 Work Mode ready")
-            return false
-        end)
-end
 
 local function kaizenMode()
     notify("⛩️ Entering Kaizen Mode...")
@@ -407,8 +379,6 @@ local function configureFunctionKeys()
                     os.execute("systemctl --user restart lua-wm.service &")
                 elseif action == "KAIZEN_MODE" then
                     kaizenMode()
-                elseif action == "WORK_MODE" then
-                    workMode()
                 elseif action == "RESET_LAYOUT" then
                     resetLayout()
                 elseif action == "EMOJI" then
@@ -436,6 +406,6 @@ end
 
 buildAppIndex()
 configureFunctionKeys()
-workMode()
+kaizenMode()
 
 GLib.MainLoop.new(nil, false):run()

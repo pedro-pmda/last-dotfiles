@@ -9,7 +9,7 @@ package.preload["app_config"] = function() return assert(loadfile(PROFILE))() en
 local profile = require("app_config")
 
 local originals = {}
-for _, key in ipairs({"workAppLayout", "kaizenAppLayout"}) do
+for _, key in ipairs({"kaizenAppLayout"}) do
   for _, cfg in ipairs(profile[key] or {}) do
     originals[key .. "/" .. cfg.name] = { w = cfg.width, h = cfg.height,
                                           pos = cfg.position, vert = cfg.vertical }
@@ -22,7 +22,7 @@ TESTOPEN["google-chrome"] = true
 assert(loadfile(REPO .. "/init.lua"))()
 
 local mutated = {}
-for _, key in ipairs({"workAppLayout", "kaizenAppLayout"}) do
+for _, key in ipairs({"kaizenAppLayout"}) do
   for _, cfg in ipairs(profile[key] or {}) do
     local o = originals[key .. "/" .. cfg.name]
     if cfg.width ~= o.w or cfg.height ~= o.h
