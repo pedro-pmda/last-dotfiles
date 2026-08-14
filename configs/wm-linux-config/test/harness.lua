@@ -65,12 +65,14 @@ local Gdk = {
 -- Índice de apps: se declara igual que un .desktop, con StartupWMClass
 local DESKTOP_APPS = {
   { name = "Google Chrome",          cls = "google-chrome" },
-  { name = "Chromium",               cls = "chromium-browser" },
+  { name = "Google Chrome (unstable)", cls = "google-chrome-unstable" },
+  { name = "Chromium Web Browser",   cls = "chromium" },
   { name = "Visual Studio Code",     cls = "code" },
   { name = "IntelliJ IDEA Ultimate", cls = "jetbrains-idea" },
   { name = "Slack",                  cls = "slack" },
   { name = "Obsidian",               cls = "obsidian" },
   { name = "Ghostty",                cls = "ghostty" },
+  { name = "Terminal",               cls = "gnome-terminal-server" },
   { name = "Freelens",               cls = "freelens" },
 }
 
@@ -83,6 +85,7 @@ local Gio = {
           get_name = function() return a.name end,
           get_startup_wm_class = function() return a.cls end,
           get_id = function() return a.cls .. ".desktop" end,
+          get_boolean = function(_, key) return key == "NoDisplay" and (a.noDisplay or false) end,
           launch = function() table.insert(log.launched, a.name) end,
         })
       end
