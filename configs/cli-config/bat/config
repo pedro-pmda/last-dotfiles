@@ -1,0 +1,3 @@
+# bat 0.26+ trae "Catppuccin Latte" como tema integrado, sin depender de ningún
+# archivo de tema externo — coincide con el Catppuccin Latte de Ghostty/GNOME Terminal.
+--theme="Catppuccin Latte"

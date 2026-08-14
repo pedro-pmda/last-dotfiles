@@ -30,7 +30,7 @@ TOOLS=(
   "k9s:k9s:k9s"
   "htop:htop:htop"
   "glow:glow:glow"
-  "bat:bat:"
+  "bat:bat:bat"
   "lsd:lsd:"
   "lazygit:lazygit:"
   "direnv:direnv:"

@@ -1,5 +1,9 @@
 # style name or JSON path (default "auto")
-style: "auto"
+# "auto" depende de que glow detecte el fondo de la terminal consultándola, algo que
+# falla en bastantes emuladores y cae a un estilo pensado para fondo oscuro — ilegible
+# sobre el tema claro (Catppuccin Latte) que usamos en Ghostty/GNOME Terminal. glow no
+# trae ningún estilo Catppuccin propio, así que "light" es el genérico más parecido.
+style: "light"
 # mouse support (TUI-mode only)
 mouse: false
 # use pager to display markdown
