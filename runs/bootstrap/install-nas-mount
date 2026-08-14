@@ -46,23 +46,40 @@ fi
 # x-systemd.automount es lo que hace que "funcione siempre que abras Calibre" sin
 # montarlo a mano ni tenerlo montado de más: systemd monta el share la primera vez
 # que algo accede a /mnt/bibliotecas y lo desmonta tras un rato sin uso. _netdev,nofail
-# evitan que un NAS inalcanzable rompa el arranque.
-FSTAB_LINE="//nas.local/bibliotecas $MOUNT_POINT cifs credentials=$CREDENTIALS_FILE,uid=$(id -u),gid=$(id -g),vers=3.0,file_mode=0777,dir_mode=0777,x-systemd.automount,x-systemd.idle-timeout=600,_netdev,nofail 0 0"
+# evitan que un NAS inalcanzable rompa el arranque. nobrl desactiva el locking por
+# rango de bytes del cliente CIFS: con él activo (el default), calibre/sqlite daba
+# "database is locked" al abrir la biblioteca — el NAS (UGREEN/Samba) no gestiona
+# bien los oplocks que ese locking necesita. Sin byte-range locking, calibre sigue
+# protegido igualmente porque abre metadata.db con su propio locking de aplicación.
+FSTAB_LINE="//nas.local/bibliotecas $MOUNT_POINT cifs credentials=$CREDENTIALS_FILE,uid=$(id -u),gid=$(id -g),vers=3.0,file_mode=0777,dir_mode=0777,nobrl,x-systemd.automount,x-systemd.idle-timeout=600,_netdev,nofail 0 0"
 
-if grep -qF "$MOUNT_POINT" /etc/fstab 2>/dev/null; then
-  echo "✅ /etc/fstab ya tiene una entrada para $MOUNT_POINT, no se toca."
+if grep -qxF "$FSTAB_LINE" /etc/fstab 2>/dev/null; then
+  echo "✅ /etc/fstab ya tiene la entrada correcta para $MOUNT_POINT, no se toca."
+elif grep -qF "$MOUNT_POINT" /etc/fstab 2>/dev/null; then
+  # Ya había una línea para este mount point pero con opciones distintas (p.ej.
+  # una versión anterior del script sin nobrl) — se sustituye por la actual en
+  # vez de dejar dos líneas o quedarse con la vieja.
+  echo "📝 Actualizando la entrada de $MOUNT_POINT en /etc/fstab..."
+  sudo sed -i "\\#$MOUNT_POINT#d" /etc/fstab
+  echo "$FSTAB_LINE" | sudo tee -a /etc/fstab > /dev/null
+  echo "✅ /etc/fstab actualizado."
 else
   echo "📝 Añadiendo $MOUNT_POINT a /etc/fstab..."
   echo "$FSTAB_LINE" | sudo tee -a /etc/fstab > /dev/null
   echo "✅ /etc/fstab actualizado."
 fi
 
-# daemon-reload regenera las unidades de systemd a partir del fstab, pero no las
-# arranca por sí solo — sin esto, la unidad de automount se queda "inactive (dead)"
-# hasta el próximo reboot. Se hace siempre (no solo al escribir el fstab), para que
-# volver a correr el script también sirva de "arréglamelo" si algo quedó a medias.
+# Se paran las unidades viejas antes del reload por si había un montaje activo con
+# opciones antiguas (si no, systemd lo dejaría montado tal cual hasta que expire el
+# idle-timeout, ignorando el cambio). daemon-reload regenera las unidades a partir
+# del fstab, pero no las arranca por sí solo — sin el start, el automount se queda
+# "inactive (dead)" hasta el próximo reboot. Todo esto se hace siempre (no solo al
+# tocar el fstab), para que volver a correr el script también sirva de "arréglamelo".
+MOUNT_UNIT="$(systemd-escape --path --suffix=mount "$MOUNT_POINT")"
+AUTOMOUNT_UNIT="$(systemd-escape --path --suffix=automount "$MOUNT_POINT")"
+sudo systemctl stop "$MOUNT_UNIT" "$AUTOMOUNT_UNIT" 2>/dev/null || true
 sudo systemctl daemon-reload
-sudo systemctl start "$(systemd-escape --path --suffix=automount "$MOUNT_POINT")"
+sudo systemctl start "$AUTOMOUNT_UNIT"
 
 echo
 echo "✅ Montaje CIFS listo. Se activa solo al acceder a $MOUNT_POINT (p. ej. desde Calibre)."
