@@ -11,14 +11,12 @@ set -euo pipefail
 if command -v chromium &>/dev/null || command -v chromium-browser &>/dev/null \
    || [[ -d "/Applications/Chromium.app" ]]; then
   echo "✅ Chromium ya está instalado."
-  exit 0
-fi
-
-if [[ "$(uname -s)" == "Darwin" ]]; then
+elif [[ "$(uname -s)" == "Darwin" ]]; then
   source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
   ensure_brew
   echo "📦 Instalando Chromium con Homebrew..."
   brew install --cask chromium
+  echo "✅ Chromium instalado"
 else
   source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/apt.sh"
   # Debian empaqueta 'chromium'; Ubuntu 'chromium-browser'. Se prueba en ese orden.
@@ -27,6 +25,25 @@ else
   else
     apt_install chromium-browser
   fi
+  echo "✅ Chromium instalado"
 fi
 
-echo "✅ Chromium instalado"
+# El chromium-browser.desktop de Debian/Ubuntu declara StartupWMClass=chromium,
+# pero la ventana real reporta WM_CLASS "Chromium-browser" (bug conocido del
+# paquete: su propio .desktop no coincide con lo que reporta el binario) — sin
+# corregirlo, lua-wm no reencuentra una ventana ya abierta y cada tecla lanza
+# una copia nueva. Se corrige con un override de usuario, igual que en
+# install-calibre. Si tu distro usa el paquete 'chromium' (chromium.desktop)
+# en vez de 'chromium-browser', no se ha verificado el mismo bug — comprueba
+# con `xprop WM_CLASS` antes de asumir que hace falta el mismo arreglo.
+CHROMIUM_DESKTOP="/usr/share/applications/chromium-browser.desktop"
+if [[ "$(uname -s)" != "Darwin" && -f "$CHROMIUM_DESKTOP" ]]; then
+  LOCAL_DESKTOP="$HOME/.local/share/applications/chromium-browser.desktop"
+  if ! grep -q '^StartupWMClass=Chromium-browser$' "$LOCAL_DESKTOP" 2>/dev/null; then
+    mkdir -p "$(dirname "$LOCAL_DESKTOP")"
+    grep -v '^StartupWMClass=' "$CHROMIUM_DESKTOP" > "$LOCAL_DESKTOP"
+    echo "StartupWMClass=Chromium-browser" >> "$LOCAL_DESKTOP"
+    command -v update-desktop-database &>/dev/null && update-desktop-database "$HOME/.local/share/applications" &>/dev/null
+    echo "🔧 Corregido StartupWMClass=Chromium-browser en un .desktop de usuario (necesario para reenfocar)."
+  fi
+fi
