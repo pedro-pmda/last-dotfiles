@@ -38,6 +38,8 @@ return {
 
         -- Construir
         { key = "F5",  modifiers = {},        action = "Visual Studio Code" },
+        -- Name= es "calibre" en minúscula, tal cual lo trae su .desktop.
+        { key = "F6",  modifiers = {},        action = "calibre" },
         { key = "F7",  modifiers = {},        action = "Freelens" },
         { key = "F8",  modifiers = {},        action = "Terminal" },
 
@@ -67,18 +69,21 @@ return {
     -- Pantalla única 2560x1440: dos columnas al 50% ("2/4" en el esquema de
     -- fracciones de getSizeFraction), no el reparto 1/4·2/4·1/4 del
     -- ultrawide de mac-work.
+    -- IA (Claude, Chromium dedicado a Gemini) y CLI (Terminal) van siempre a
+    -- la derecha; el resto (notas, navegación normal, editor) a la izquierda.
     kaizenAppLayout = {
         { name = "Obsidian",           position = "left",  width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Claude",             position = "left",  width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Chromium Web Browser", position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Google Chrome",      position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Visual Studio Code", position = "left",  width = "2/4", vertical = "top", height = "3/3" },
 
-        { name = "Google Chrome",      position = "right", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Visual Studio Code", position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Claude",             position = "right", width = "2/4", vertical = "top", height = "3/3" },
+        { name = "Chromium Web Browser", position = "right", width = "2/4", vertical = "top", height = "3/3" },
         { name = "Terminal",           position = "right", width = "2/4", vertical = "top", height = "3/3" },
 
         -- Escape a pantalla completa: no forma parte de la rejilla de columnas
         { name = "Spotify",            position = "center", width = "4/4", vertical = "center", height = "4/4" },
         { name = "Google Chrome (unstable)", position = "center", width = "4/4", vertical = "center", height = "4/4" },
+        { name = "calibre",            position = "center", width = "4/4", vertical = "center", height = "4/4" },
     },
 
     foregroundApps = {

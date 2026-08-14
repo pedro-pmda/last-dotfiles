@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: 📚 Calibre — gestor de libros electrónicos
+
+set -euo pipefail
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if [[ -d "/Applications/calibre.app" ]]; then
+    echo "✅ Calibre ya está instalado."
+    exit 0
+  fi
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+  ensure_brew
+  echo "📦 Instalando Calibre con Homebrew..."
+  brew install --cask calibre
+  echo "✅ Calibre instalado"
+  exit 0
+fi
+
+if command -v calibre &>/dev/null; then
+  echo "✅ Calibre ya está instalado."
+else
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/apt.sh"
+  apt_install calibre
+  echo "✅ Calibre instalado"
+fi
+
+# El calibre-gui.desktop de Debian/Ubuntu no trae StartupWMClass, así que
+# lua-wm cae al fallback (deriva "calibre-gui" del id del .desktop) mientras
+# la ventana real reporta WM_CLASS "calibre" — sin esto nunca la reencuentra
+# y F6 lanzaría una copia nueva cada vez en lugar de reenfocar la abierta.
+# Se corrige con un override de usuario, sin tocar el .desktop del sistema.
+SYSTEM_DESKTOP="/usr/share/applications/calibre-gui.desktop"
+LOCAL_DESKTOP="$HOME/.local/share/applications/calibre-gui.desktop"
+if [[ -f "$SYSTEM_DESKTOP" ]] && ! grep -q '^StartupWMClass=' "$SYSTEM_DESKTOP" && [[ ! -f "$LOCAL_DESKTOP" ]]; then
+  mkdir -p "$(dirname "$LOCAL_DESKTOP")"
+  cp "$SYSTEM_DESKTOP" "$LOCAL_DESKTOP"
+  echo "StartupWMClass=calibre" >> "$LOCAL_DESKTOP"
+  command -v update-desktop-database &>/dev/null && update-desktop-database "$HOME/.local/share/applications" &>/dev/null
+  echo "🔧 Añadido StartupWMClass=calibre en un .desktop de usuario (necesario para reenfocar)."
+fi
