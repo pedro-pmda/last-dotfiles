@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# run-os: linux
+# run-desc: 🎨 Tema Catppuccin Latte y letra más grande en GNOME Terminal
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+[[ "$(uname -s)" == "Linux" ]] || exit 0
+command -v gsettings &>/dev/null || { echo "⏭️  gsettings no disponible, se omite."; exit 0; }
+
+UUID="de8a9081-8352-4ce4-9519-5de655ad9361"  # uuid fijo del tema oficial catppuccin/gnome-terminal (latte)
+PROFILE_LIST_SCHEMA="org.gnome.Terminal.ProfilesList"
+PROFILE_PATH="/org/gnome/terminal/legacy/profiles:/:$UUID/"
+
+echo "🎨 Aplicando Catppuccin Latte al perfil $UUID de GNOME Terminal..."
+dconf load "$PROFILE_PATH" < "$REPO_ROOT/configs/gnome-terminal-config/catppuccin-latte.dconf"
+
+mapfile -t profiles < <(gsettings get "$PROFILE_LIST_SCHEMA" list | tr -d "[]'" | tr ',' '\n' | sed 's/^ *//;s/ *$//')
+if [[ ! " ${profiles[*]} " == *" $UUID "* ]]; then
+  profiles+=("$UUID")
+fi
+printf -v list_str "'%s', " "${profiles[@]}"
+gsettings set "$PROFILE_LIST_SCHEMA" list "[${list_str%, }]"
+gsettings set "$PROFILE_LIST_SCHEMA" default "$UUID"
+
+echo "✅ GNOME Terminal: perfil 'Catppuccin Latte' creado y marcado como predeterminado."
+echo "   Abre una pestaña/ventana nueva para verlo aplicado."
