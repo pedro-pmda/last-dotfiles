@@ -8,11 +8,11 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 |---|---|
 | `run` | Entrypoint. No filter → `runs/bootstrap/` in `BOOTSTRAP_ORDER`. With a filter → substring match over all of `runs/`. |
 | `runs/lib/` | Sourced helpers, **not executable** so `run` skips them: `brew-env.sh` (`ensure_brew`), `apt.sh` (`require_apt`, `apt_install`) |
-| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, kubernetes, git-config, ghostty, cli-tools, chromium, chrome-canary, freelens, obsidian, spotify, hammerspoon (macOS), wm-linux (Linux). One installer per app, each handling both OSes. |
+| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, kubernetes, git-config, ghostty, cli-tools, chromium, chrome-canary, freelens, calibre, obsidian, spotify, hammerspoon (macOS), wm-linux (Linux), gnome-terminal (Linux), nas-mount (Linux). One installer per app, each handling both OSes unless noted otherwise. |
 | `runs/infra/` | `install-k3s` (k3d cluster), `switch-cluster` (kubectl context) |
 | `runs/access/` | `repokeys` — loads every private key in `~/.ssh` into an existing ssh-agent |
 | `runs/utils/` | `ready-tmux`, `tmux-sessionizer`, `install-git-hooks` |
-| `configs/` | **Everything here is symlinked** to where the tool expects it — editing a file here edits the live config. `zsh-config/` (`.zshrc` + `.p10k.zsh`), `nvim-config/`, `tmux-config/`, `tmux-examples/`, `ghostty-config/`, `git-config/`, `cli-config/` (k9s, htop, glow), `hammerspoon-config/` (macOS), `wm-linux-config/` (Linux). Full destination table in `README.md`. |
+| `configs/` | **Everything here is symlinked** to where the tool expects it — editing a file here edits the live config. `zsh-config/` (`.zshrc` + `.p10k.zsh`), `nvim-config/`, `tmux-config/`, `tmux-examples/`, `ghostty-config/`, `git-config/`, `cli-config/` (k9s, htop, glow, bat), `hammerspoon-config/` (macOS), `wm-linux-config/` (Linux), `gnome-terminal-config/` (Linux — not a symlink, it's the one exception, see Conventions below). Full destination table in `README.md`. |
 | `hooks/` | Git hooks installed into a **target** repo by `install-git-hooks`. zooplus conventions (`ZOOB-*` Jira IDs, `MAJOR\|MINOR\|REVISION \| ...`, `ui/` Prettier+ESLint). Not meant to run on this repo. |
 
 ## Running tasks
@@ -43,7 +43,7 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 - Bash: `#!/usr/bin/env bash` + `set -euo pipefail`, emoji-prefixed `echo` progress lines.
 - Messages mix Spanish and English — **match the file you're editing**, don't normalize.
 - Installers must be idempotent: check `command -v` / existing dirs, don't fail on re-run.
-- **Configs are applied by symlink, never generated and never copied.** Adding a config means: file into `configs/<thing>/`, then an installer that links it and backs up a real file it would replace to `<dest>.backup-<timestamp>`. `install-tmux` used to generate its `tmux.conf` with a heredoc; that's what made it the one config you couldn't edit from the repo, and it was fixed rather than kept as a pattern.
+- **Configs are applied by symlink, never generated and never copied.** Adding a config means: file into `configs/<thing>/`, then an installer that links it and backs up a real file it would replace to `<dest>.backup-<timestamp>`. `install-tmux` used to generate its `tmux.conf` with a heredoc; that's what made it the one config you couldn't edit from the repo, and it was fixed rather than kept as a pattern. `gnome-terminal-config/catppuccin-latte.dconf` is the one deliberate exception — GNOME Terminal keeps profiles in `dconf`, not a file, so `install-gnome-terminal` `dconf load`s it into a fixed-UUID profile instead of symlinking.
 - Anything OS-dependent inside a config gets resolved **at use time, not at install time** — `tmux-config/clipboard.sh` picks the clipboard command on every yank, because `$WAYLAND_DISPLAY` describes the session, not the machine. Baking the choice in at install time is what made the old `tmux.conf` non-portable.
 - Strip user-specific absolute paths when versioning someone's live config (`k9s`'s `screenDumpDir` held `/Users/<user>/Library/...`). Prefer letting the tool use its own per-platform default.
 - Some tools write their own config back (nvim's `lazy-lock.json`, `htoprc`, k9s's `config.yaml`). Through a symlink that shows up as repo changes — expected, not a bug.

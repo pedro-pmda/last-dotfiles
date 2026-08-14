@@ -135,7 +135,7 @@ Sourced by the installers, never executed on its own.
 | `install-zsh` | **Symlinks** `~/.zshrc` and `~/.p10k.zsh` to `configs/zsh-config/` first, then installs zsh + `fzf`, `thefuck`, `autojump`, the MesloLGS Nerd Font, Antigen and `kube-ps1`, and sets zsh as the default shell. | Backs up any real (non-symlink) `~/.zshrc` it would replace. Editing `configs/zsh-config/.zshrc` edits the live shell config directly. The symlink goes first on purpose: it's the one step that must not be left half-done. `chsh` registers the shell in `/etc/shells` if it isn't there (Homebrew's zsh never is), and degrades to a warning instead of aborting. |
 | `install-nvim` | `brew install neovim`, then **symlinks** `~/.config/nvim` to `configs/nvim-config/`. | Backs up any real (non-symlink) `~/.config/nvim` it would replace. |
 | `install-tmux` | `brew install tmux`, then **symlinks** `~/.config/tmux/{tmux.conf,clipboard.sh}` and `~/.ready-tmux`. On Linux also installs xclip + wl-clipboard. | Prefix remapped to `C-a`, vi copy-mode, `hjkl` pane navigation, `prefix + r` reloads. The clipboard command is chosen at yank time by `clipboard.sh`, so the same conf works on macOS, X11 and Wayland. |
-| `install-docker` | macOS: `brew install --cask docker-desktop` and opens Docker Desktop. Linux: installs Docker Engine via the official `get.docker.com` script, enables the systemd service (if `systemctl` exists), and adds you to the `docker` group. | Skips if `docker` is already on `PATH`. On Linux you need to log out/in for the group change to apply. |
+| `install-docker` | macOS: `brew install --cask docker-desktop` and opens Docker Desktop. Linux: sets up Docker's official apt repo by hand and installs via `apt.sh`, then enables the systemd service (if `systemctl` exists) and adds you to the `docker` group. | Skips if `docker` is already on `PATH`. Doesn't use the `get.docker.com` convenience script — it misdetects Ubuntu derivatives like Mint (falls back to the wrong Debian codename), so the repo/codename are resolved explicitly, preferring `/etc/upstream-release/lsb-release` when present. On Linux you need to log out/in for the group change to apply. |
 | `install-obsidian` | macOS: `brew install --cask obsidian`. Linux: installs from Flathub (`md.obsidian.Obsidian`) via Flatpak, adding the `flathub` remote if it's missing. | Skips if already installed. Flatpak was chosen over snap because Linux Mint blocks snapd by default but ships Flatpak/Flathub out of the box. |
 | `install-spotify` | macOS: `brew install --cask spotify`. Linux: installs from Flathub (`com.spotify.Client`) via Flatpak, adding the `flathub` remote if it's missing. | Skips if already installed. Same Flatpak rationale as `install-obsidian`. |
 | `install-node-version-manager` | `brew install nvm`, creates `~/.nvm`, then installs the latest Node and sets it as default. | Writes nothing into `~/.zshrc` — that file is a symlink into this repo, so appending machine-specific brew paths to it put the wrong `/opt/homebrew` vs `/home/linuxbrew` path in version control. `.zshrc` loads nvm via `$HOMEBREW_PREFIX` instead. |
@@ -146,9 +146,9 @@ Sourced by the installers, never executed on its own.
 | `install-gnome-terminal` | Linux only. `dconf load`s `configs/gnome-terminal-config/catppuccin-latte.dconf` into a fixed-UUID profile (the same one the upstream `catppuccin/gnome-terminal` installer uses), then sets it as the default profile. | Not in `BOOTSTRAP_ORDER` (same as `install-obsidian`/`install-spotify`) — run it explicitly with `./run gnome-terminal`. GNOME Terminal keeps profiles in dconf, not a plain file, so this can't be a symlink; the dark profile you already had is left alone and still selectable from Preferences. |
 | `install-calibre` | Calibre: cask on macOS, apt on Linux. | On Linux, also fixes a missing `StartupWMClass` in Debian/Ubuntu's `calibre-gui.desktop` via a user-level `.desktop` override — without it `lua-wm` can't refocus an already-open Calibre window and would launch a duplicate every time. |
 | `install-nas-mount` | Linux only. Mounts the NAS books share over **CIFS** (`/mnt/bibliotecas`, `x-systemd.automount`) instead of the GVFS mount Nautilus uses — GVFS doesn't implement `flock` correctly, which makes Calibre think its library database is corrupted. | Not in `BOOTSTRAP_ORDER` — run it explicitly with `./run nas-mount`. Prompts for SMB credentials interactively on first run and writes them to `~/.smbcredentials` (chmod 600), **never into the repo**. `x-systemd.automount` means the share mounts itself the first time something (e.g. Calibre) touches the mount point — nothing needs to run it eagerly at login. |
-| `install-cli-tools` | Installs `k9s`, `htop`, `glow`, `bat`, `lsd`, `lazygit`, `direnv` and `tree-sitter-cli` with Homebrew if missing, then **symlinks** the configs that exist in the repo (`k9s`, `htop`, `glow`). | Checks with `command -v`, so an apt-installed or hand-compiled copy is respected instead of installing a second one. Entries are `formula:binary:config-dir`, because the binary isn't always named after the formula (`tree-sitter-cli` → `tree-sitter`) and not every tool has a versioned config. |
+| `install-cli-tools` | Installs `k9s`, `htop`, `glow`, `bat`, `lsd`, `lazygit`, `direnv` and `tree-sitter-cli` with Homebrew if missing, then **symlinks** the configs that exist in the repo (`k9s`, `htop`, `glow`, `bat`). | Checks with `command -v`, so an apt-installed or hand-compiled copy is respected instead of installing a second one. Entries are `formula:binary:config-dir`, because the binary isn't always named after the formula (`tree-sitter-cli` → `tree-sitter`) and not every tool has a versioned config. |
 | `install-kubernetes` | `kubectl`, `kubectx`/`kubens` and `helm`. | Nothing installed `kubectl` before, even though `.zshrc` has five aliases using it and `kube_ps1` in the prompt. `kubectx` moved here from `install-zsh`, where it had ended up only because its aliases live in the shell config. |
-| `install-chromium` | Chromium: cask on macOS, apt on Linux (tries `chromium`, then `chromium-browser`). | The window profiles bind a key to it and open a tab set in it, but nothing installed it. |
+| `install-chromium` | Chromium: cask on macOS, apt on Linux (tries `chromium`, then `chromium-browser`). | The window profiles bind a key to it and open a tab set in it, but nothing installed it. On Linux, also fixes `chromium-browser.desktop`'s `StartupWMClass` (Debian/Ubuntu ship it as `chromium`, but the window actually reports `Chromium-browser`) via the same user-level `.desktop` override pattern as `install-calibre` — otherwise `lua-wm` can't refocus it. |
 | `install-chrome-canary` | Google Chrome Canary via cask on macOS. | Canary doesn't exist on Linux; there the equivalent channel is `google-chrome-unstable`, which needs Google's apt repo. The script prints the commands rather than adding a third-party repo behind your back. |
 | `install-freelens` | Freelens (the maintained successor to OpenLens): cask on macOS, official `.deb` from GitHub releases on Linux (arch-matched, sha256 verified before `sudo apt install`). | On macOS it needs your password to copy into `/Applications`. |
 
@@ -190,7 +190,7 @@ edits the live config — no reinstall. Where a file lands, and who links it:
 | `tmux-examples/.ready-tmux-default` | `~/.ready-tmux` | `install-tmux` |
 | `ghostty-config/config` | `~/.config/ghostty/config` | `install-ghostty` |
 | `git-config/.gitconfig` + the two identities + `.gitignore_global` | `~/` | `install-git-config` |
-| `cli-config/{k9s,htop,glow}/` | `~/.config/<tool>/` | `install-cli-tools` |
+| `cli-config/{k9s,htop,glow,bat}/` | `~/.config/<tool>/` | `install-cli-tools` |
 | `hammerspoon-config/{init.lua,profiles/<one>.lua}` | `~/.hammerspoon/{init.lua,app_config.lua}` | `install-hammerspoon` |
 | `wm-linux-config/{init.lua,profiles/<one>.lua}` | `~/.config/lua-wm/{init.lua,app_config.lua}` | `install-wm-linux` |
 
@@ -358,7 +358,7 @@ ghostty +show-config
 ### `cli-config/`
 
 Small configs for terminal tools, one directory each, linked to `~/.config/<tool>/`: `k9s`
-(+ its `aliases.yaml`), `htop`, `glow` — `bat`, `lsd`, `lazygit`, `direnv` and `tree-sitter-cli` are
+(+ its `aliases.yaml`), `htop`, `glow`, `bat` — `lsd`, `lazygit`, `direnv` and `tree-sitter-cli` are
 installed but have no versioned config yet. `install-cli-tools` installs the tools themselves too — the
 config and the thing it configures arrive together, so you can't end up with a perfectly linked
 `~/.config/glow` and no glow.
@@ -366,10 +366,26 @@ config and the thing it configures arrive together, so you can't end up with a p
 `k9s`'s `screenDumpDir` was removed — it hardcoded `/Users/<user>/Library/...`, which is wrong on
 Linux; k9s falls back to its own per-platform default.
 
+`glow` and `bat` are both set to a light style (`glow.yml`'s `style: light`, `bat`'s
+`--theme="Catppuccin Latte"`) to match the light theme used everywhere else in the terminal
+(Ghostty, GNOME Terminal). `glow`'s default `style: auto` depends on detecting the terminal's
+background, which doesn't work reliably and was rendering dark-on-light; `bat` has no `auto` at
+all; without an explicit theme both default to something dark. `bat` ships a real Catppuccin
+Latte theme built in — `glow` doesn't have one, so it uses the closest generic built-in.
+
 Not included, deliberately: `lazygit` (empty config), `neofetch` / `zellij` / `bpytop` (untouched
 default templates), and `direnv` — its `direnv.toml` isn't a personal preference at all, it's a
 `warn_timeout` line written by PostHog's Flox activation hook that references a path inside that
 project. Versioning a file another tool regenerates only invites conflicts.
+
+### `gnome-terminal-config/`
+
+Just `catppuccin-latte.dconf`, installed by `./run gnome-terminal` (not in `BOOTSTRAP_ORDER`,
+same as `install-obsidian`/`install-spotify`). GNOME Terminal keeps its profiles in `dconf`, not
+a plain config file, so this can't be symlinked like everything else in this repo — the
+installer `dconf load`s it into a fixed-UUID profile (the same UUID the upstream
+`catppuccin/gnome-terminal` installer uses) and sets it as the default, leaving whatever dark
+profile you already had alone and still selectable from Preferences.
 
 ### `git-config/`
 
