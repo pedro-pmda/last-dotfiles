@@ -366,12 +366,15 @@ config and the thing it configures arrive together, so you can't end up with a p
 `k9s`'s `screenDumpDir` was removed — it hardcoded `/Users/<user>/Library/...`, which is wrong on
 Linux; k9s falls back to its own per-platform default.
 
-`glow` and `bat` are both set to a light style (`glow.yml`'s `style: light`, `bat`'s
-`--theme="Catppuccin Latte"`) to match the light theme used everywhere else in the terminal
-(Ghostty, GNOME Terminal). `glow`'s default `style: auto` depends on detecting the terminal's
-background, which doesn't work reliably and was rendering dark-on-light; `bat` has no `auto` at
-all; without an explicit theme both default to something dark. `bat` ships a real Catppuccin
-Latte theme built in — `glow` doesn't have one, so it uses the closest generic built-in.
+`k9s`, `glow` and `bat` are all set to a light theme, to match the light theme used everywhere
+else in the terminal (Ghostty, GNOME Terminal): `glow.yml`'s `style: light`, `bat`'s
+`--theme="Catppuccin Latte"`, and `k9s`'s `config.yaml` `ui.skin: catppuccin-latte`.
+`glow`'s default `style: auto` depends on detecting the terminal's background, which doesn't
+work reliably and was rendering dark-on-light; `bat` and `k9s` have no `auto` at all — without
+an explicit theme/skin, both just default to something dark. `bat` ships a real Catppuccin
+Latte theme built in; `k9s` doesn't, so `cli-config/k9s/skins/catppuccin-latte.yaml` is vendored
+straight from `catppuccin/k9s`; `glow` doesn't have one either and has no skins mechanism to
+vendor one into, so it uses the closest generic built-in (`light`) instead.
 
 Not included, deliberately: `lazygit` (empty config), `neofetch` / `zellij` / `bpytop` (untouched
 default templates), and `direnv` — its `direnv.toml` isn't a personal preference at all, it's a

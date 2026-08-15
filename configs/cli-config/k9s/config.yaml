@@ -12,6 +12,10 @@ k9s:
     reactive: false
     noIcons: false
     defaultsToFullScreen: false
+    # skins/catppuccin-latte.yaml, vendored from catppuccin/k9s — sin esto k9s usa
+    # su tema oscuro por defecto, ilegible sobre el Catppuccin Latte del resto de
+    # la terminal (Ghostty/GNOME Terminal/bat/glow).
+    skin: catppuccin-latte
   skipLatestRevCheck: false
   disablePodCounting: false
   shellPod:
