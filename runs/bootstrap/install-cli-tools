@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run-os: any
-# run-desc: 🛠  CLI: k9s, htop, glow, bat, lsd, lazygit, direnv, tree-sitter
+# run-desc: 🛠  CLI: k9s, htop, glow, bat, lsd, vivid, lazygit, direnv, tree-sitter
 
 set -euo pipefail
 
@@ -31,7 +31,12 @@ TOOLS=(
   "htop:htop:htop"
   "glow:glow:glow"
   "bat:bat:bat"
-  "lsd:lsd:"
+  "lsd:lsd:lsd"
+  # vivid genera el LS_COLORS que usan lsd y `ls --color` para nombres de archivo
+  # (directorios, ejecutables...) — el skin de lsd no llega ahí, solo a columnas
+  # de metadatos (permisos, tamaño, fecha). Se invoca desde .zshrc, no tiene
+  # config propia que enlazar.
+  "vivid:vivid:"
   "lazygit:lazygit:"
   "direnv:direnv:"
   "tree-sitter-cli:tree-sitter:"

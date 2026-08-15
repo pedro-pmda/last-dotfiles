@@ -95,6 +95,15 @@ alias session="$DOTFILES_ROOT/runs/utils/tmux-sessionizer"
 alias ready-tmux="$DOTFILES_ROOT/runs/utils/ready-tmux"
 alias dpsp='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"'
 
+# ─── LS_COLORS (vivid) ───────────────────────────────────────────
+# vivid genera el LS_COLORS de nombres de archivo (directorios, ejecutables...)
+# a partir del tema Catppuccin Latte que ya usamos en el resto de la terminal.
+# Sin esto, ls/lsd usan el LS_COLORS del sistema (azul oscuro para directorios),
+# que no se lee bien sobre fondo claro.
+if command -v vivid &>/dev/null; then
+  export LS_COLORS="$(vivid generate catppuccin-latte)"
+fi
+
 # ─── The Fuck (lazy-loaded to avoid init output) ────────────────
 if command -v thefuck &>/dev/null; then
   thefuck_init() { eval "$(thefuck --alias)"; }

@@ -146,7 +146,7 @@ Sourced by the installers, never executed on its own.
 | `install-gnome-terminal` | Linux only. `dconf load`s `configs/gnome-terminal-config/catppuccin-latte.dconf` into a fixed-UUID profile (the same one the upstream `catppuccin/gnome-terminal` installer uses), then sets it as the default profile. | Not in `BOOTSTRAP_ORDER` (same as `install-obsidian`/`install-spotify`) — run it explicitly with `./run gnome-terminal`. GNOME Terminal keeps profiles in dconf, not a plain file, so this can't be a symlink; the dark profile you already had is left alone and still selectable from Preferences. |
 | `install-calibre` | Calibre: cask on macOS, apt on Linux. | On Linux, also fixes a missing `StartupWMClass` in Debian/Ubuntu's `calibre-gui.desktop` via a user-level `.desktop` override — without it `lua-wm` can't refocus an already-open Calibre window and would launch a duplicate every time. |
 | `install-nas-mount` | Linux only. Mounts the NAS books share over **CIFS** (`/mnt/bibliotecas`, `x-systemd.automount`) instead of the GVFS mount Nautilus uses — GVFS doesn't implement `flock` correctly, which makes Calibre think its library database is corrupted. | Not in `BOOTSTRAP_ORDER` — run it explicitly with `./run nas-mount`. Prompts for SMB credentials interactively on first run and writes them to `~/.smbcredentials` (chmod 600), **never into the repo**. `x-systemd.automount` means the share mounts itself the first time something (e.g. Calibre) touches the mount point — nothing needs to run it eagerly at login. |
-| `install-cli-tools` | Installs `k9s`, `htop`, `glow`, `bat`, `lsd`, `lazygit`, `direnv` and `tree-sitter-cli` with Homebrew if missing, then **symlinks** the configs that exist in the repo (`k9s`, `htop`, `glow`, `bat`). | Checks with `command -v`, so an apt-installed or hand-compiled copy is respected instead of installing a second one. Entries are `formula:binary:config-dir`, because the binary isn't always named after the formula (`tree-sitter-cli` → `tree-sitter`) and not every tool has a versioned config. |
+| `install-cli-tools` | Installs `k9s`, `htop`, `glow`, `bat`, `lsd`, `vivid`, `lazygit`, `direnv` and `tree-sitter-cli` with Homebrew if missing, then **symlinks** the configs that exist in the repo (`k9s`, `htop`, `glow`, `bat`, `lsd`). | Checks with `command -v`, so an apt-installed or hand-compiled copy is respected instead of installing a second one. Entries are `formula:binary:config-dir`, because the binary isn't always named after the formula (`tree-sitter-cli` → `tree-sitter`) and not every tool has a versioned config — `vivid` is one of these, it's invoked from `.zshrc`, not configured through a file. |
 | `install-kubernetes` | `kubectl`, `kubectx`/`kubens` and `helm`. | Nothing installed `kubectl` before, even though `.zshrc` has five aliases using it and `kube_ps1` in the prompt. `kubectx` moved here from `install-zsh`, where it had ended up only because its aliases live in the shell config. |
 | `install-chromium` | Chromium: cask on macOS, apt on Linux (tries `chromium`, then `chromium-browser`). | The window profiles bind a key to it and open a tab set in it, but nothing installed it. On Linux, also fixes `chromium-browser.desktop`'s `StartupWMClass` (Debian/Ubuntu ship it as `chromium`, but the window actually reports `Chromium-browser`) via the same user-level `.desktop` override pattern as `install-calibre` — otherwise `lua-wm` can't refocus it. |
 | `install-chrome-canary` | Google Chrome Canary via cask on macOS. | Canary doesn't exist on Linux; there the equivalent channel is `google-chrome-unstable`, which needs Google's apt repo. The script prints the commands rather than adding a third-party repo behind your back. |
@@ -190,7 +190,7 @@ edits the live config — no reinstall. Where a file lands, and who links it:
 | `tmux-examples/.ready-tmux-default` | `~/.ready-tmux` | `install-tmux` |
 | `ghostty-config/config` | `~/.config/ghostty/config` | `install-ghostty` |
 | `git-config/.gitconfig` + the two identities + `.gitignore_global` | `~/` | `install-git-config` |
-| `cli-config/{k9s,htop,glow,bat}/` | `~/.config/<tool>/` | `install-cli-tools` |
+| `cli-config/{k9s,htop,glow,bat,lsd}/` | `~/.config/<tool>/` | `install-cli-tools` |
 | `hammerspoon-config/{init.lua,profiles/<one>.lua}` | `~/.hammerspoon/{init.lua,app_config.lua}` | `install-hammerspoon` |
 | `wm-linux-config/{init.lua,profiles/<one>.lua}` | `~/.config/lua-wm/{init.lua,app_config.lua}` | `install-wm-linux` |
 
@@ -315,6 +315,11 @@ macOS, and a download into `~/.local/share/fonts` + `fc-cache` on Linux, where c
 
 The current shell config: Antigen + oh-my-zsh, Powerlevel10k, autosuggestions/completions/syntax-highlighting, `z`, fzf-tab, `kube-ps1` in the prompt, nvm, SDKMAN, and the aliases below.
 
+If `vivid` is installed (`install-cli-tools`), `.zshrc` exports `LS_COLORS` from
+`vivid generate catppuccin-latte` on every shell start — that's what makes `ls --color` and
+`lsd` use Catppuccin Latte for file/directory names instead of the system default. Guarded by
+`command -v vivid`, so it's silently a no-op if you haven't run that installer yet.
+
 | Alias | Expands to |
 |---|---|
 | `run` | the task runner in this repo |
@@ -358,7 +363,7 @@ ghostty +show-config
 ### `cli-config/`
 
 Small configs for terminal tools, one directory each, linked to `~/.config/<tool>/`: `k9s`
-(+ its `aliases.yaml`), `htop`, `glow`, `bat` — `lsd`, `lazygit`, `direnv` and `tree-sitter-cli` are
+(+ its `aliases.yaml`), `htop`, `glow`, `bat`, `lsd` — `lazygit`, `direnv` and `tree-sitter-cli` are
 installed but have no versioned config yet. `install-cli-tools` installs the tools themselves too — the
 config and the thing it configures arrive together, so you can't end up with a perfectly linked
 `~/.config/glow` and no glow.
@@ -366,15 +371,22 @@ config and the thing it configures arrive together, so you can't end up with a p
 `k9s`'s `screenDumpDir` was removed — it hardcoded `/Users/<user>/Library/...`, which is wrong on
 Linux; k9s falls back to its own per-platform default.
 
-`k9s`, `glow` and `bat` are all set to a light theme, to match the light theme used everywhere
-else in the terminal (Ghostty, GNOME Terminal): `glow.yml`'s `style: light`, `bat`'s
-`--theme="Catppuccin Latte"`, and `k9s`'s `config.yaml` `ui.skin: catppuccin-latte`.
-`glow`'s default `style: auto` depends on detecting the terminal's background, which doesn't
-work reliably and was rendering dark-on-light; `bat` and `k9s` have no `auto` at all — without
-an explicit theme/skin, both just default to something dark. `bat` ships a real Catppuccin
-Latte theme built in; `k9s` doesn't, so `cli-config/k9s/skins/catppuccin-latte.yaml` is vendored
-straight from `catppuccin/k9s`; `glow` doesn't have one either and has no skins mechanism to
-vendor one into, so it uses the closest generic built-in (`light`) instead.
+`k9s`, `glow`, `bat` and `lsd` are all set to a light theme, to match the light theme used
+everywhere else in the terminal (Ghostty, GNOME Terminal): `glow.yml`'s `style: light`, `bat`'s
+`--theme="Catppuccin Latte"`, `k9s`'s `config.yaml` `ui.skin: catppuccin-latte`, and `lsd`'s
+`config.yaml` `color.theme: custom` pointing at `colors.yaml`. `glow`'s default `style: auto`
+depends on detecting the terminal's background, which doesn't work reliably and was rendering
+dark-on-light; `bat`, `k9s` and `lsd` have no `auto` at all — without an explicit theme/skin,
+all three just default to something dark. `bat` ships a real Catppuccin Latte theme built in;
+`k9s` and `lsd` don't, so `k9s/skins/catppuccin-latte.yaml` and `lsd/colors.yaml` are vendored
+straight from `catppuccin/k9s` and `catppuccin/lsd`; `glow` doesn't have one either and has no
+skins mechanism to vendor one into, so it uses the closest generic built-in (`light`) instead.
+
+`lsd`'s `colors.yaml` only covers metadata columns (permissions, size, date, user/group, git
+status) — it can't touch file/directory name colors at all, those come from `$LS_COLORS`
+(shared with plain `ls --color`). `.zshrc` generates that from `vivid` (`vivid generate
+catppuccin-latte`) if it's installed, so directory names land on the same palette instead of
+the system default (dark blue, illegible on a light background).
 
 Not included, deliberately: `lazygit` (empty config), `neofetch` / `zellij` / `bpytop` (untouched
 default templates), and `direnv` — its `direnv.toml` isn't a personal preference at all, it's a

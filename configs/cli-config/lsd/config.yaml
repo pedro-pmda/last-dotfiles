@@ -1,0 +1,6 @@
+color:
+  # colors.yaml, vendorizado de catppuccin/lsd — solo cubre columnas de metadatos
+  # (permisos, tamaño, fecha, user/group, git status). Los nombres de archivo
+  # (directorios, ejecutables...) los pinta LS_COLORS, generado por vivid — ver
+  # .zshrc y runs/bootstrap/install-cli-tools.
+  theme: custom
