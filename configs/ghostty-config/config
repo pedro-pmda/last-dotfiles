@@ -11,5 +11,5 @@
 # Ver la config efectiva ahora mismo:
 #   ghostty +show-config
 
-font-size = 13
+font-size = 16
 theme = Catppuccin Latte
