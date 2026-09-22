@@ -11,15 +11,15 @@ for _, t in ipairs({ "09:30", "11:30", "13:30", "15:30" }) do
 end
 H.expectRect("de partida, Slack vive a la derecha", "Slack", 1720, 0, 1720, 1440)
 
-print("C2 · en reunión la ventana espera, no irrumpe")
-H.inCall = true
+print("C2 · con la cámara en uso la ventana espera, no irrumpe")
+H.cameraInUse = true
 H.scheduled["09:30"]()
 H.flush()
 H.expectRect("Slack no se ha movido", "Slack", 1720, 0, 1720, 1440)
 H.check("y no ha avisado todavía", not H.alertsMatch("Tiempo de Comunicación"))
 
 print("C3 · al colgar, la ventana pospuesta sale")
-H.inCall = false
+H.cameraInUse = false
 H.fireLong(60)          -- el reintento de los 2 min
 H.flush()
 H.check("avisa con el aviso acordado", H.alertsMatch("📬 Tiempo de Comunicación"))
@@ -48,5 +48,33 @@ H.scheduled["13:30"]()
 H.flush()
 H.check("los horarios de trabajo no entran en kaizen",
         not H.alertsMatch("Tiempo de Comunicación"))
+
+-- El caso real que tumbaba el mecanismo: auricular USB conectado y Teams abierto dejan el
+-- micro "en uso" todo el día. Si eso cuenta como llamada, las cuatro franjas se descartan a
+-- diario y en silencio.
+print("C7 · el micro abierto por el auricular ya no pospone")
+H.press("F11")             -- volver a work: C6 dejó el modo en kaizen
+H.flush()
+H.alerts = {}
+H.cameraInUse = false
+H.micInUse    = true
+H.scheduled["09:30"]()
+H.flush()
+H.check("la ventana sale igualmente", H.alertsMatch("📬 Tiempo de Comunicación"))
+H.expectRect("Slack a la izquierda", "Slack", 0, 0, 1720, 1440)
+
+print("C8 · con la cámara en uso se agotan los reintentos y se dice por qué")
+H.fireLong(300)            -- cerrar los 10 min de la ventana anterior
+H.flush()
+H.alerts = {}
+H.cameraInUse = true
+H.scheduled["11:30"]()
+for _ = 1, 13 do           -- 12 posposiciones + la que se rinde
+    H.fireLong(60)
+    H.flush()
+end
+H.check("no ha irrumpido", not H.alertsMatch("📬 Tiempo de Comunicación"))
+H.check("avisa del descarte con el motivo", H.alertsMatch("descartada (cámara en uso)"))
+H.expectRect("Slack sigue en su lado", "Slack", 1720, 0, 1720, 1440)
 
 H.done()

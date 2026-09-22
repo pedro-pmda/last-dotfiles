@@ -21,7 +21,10 @@ H.apps      = {}
 H.killed    = {}
 H.clock     = 0        -- nanosegundos, como hs.timer.absoluteTime()
 H.front     = nil
-H.inCall    = false
+-- Cámara y micro por separado: el micro de un auricular USB se queda "en uso" todo el día
+-- aunque no haya reunión, y eso tiene que poder probarse sin tocar la cámara.
+H.cameraInUse = false
+H.micInUse    = false
 
 --------------------------------------------------------------------------------
 -- Ventanas y apps
@@ -127,11 +130,11 @@ function hs.application.runningApplications()
 end
 
 hs.camera = {
-    allCameras = function() return { { isInUse = function() return H.inCall end } } end
+    allCameras = function() return { { isInUse = function() return H.cameraInUse end } } end
 }
 
 hs.audiodevice = {
-    defaultInputDevice = function() return { inUse = function() return H.inCall end } end
+    defaultInputDevice = function() return { inUse = function() return H.micInUse end } end
 }
 
 -- Atajos que macOS rechaza porque otro proceso ya los tiene: bind devuelve nil, igual

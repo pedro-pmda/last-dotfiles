@@ -394,17 +394,23 @@ end
 -- y al vencer se recoloca todo con el mismo resetLayout() del salvoconducto: no hay
 -- que recordar qué había antes, se vuelve a calcular.
 
--- Ocultar o mover ventanas encima de una pantalla compartida es un desastre para
--- quien te está viendo, así que mientras haya cámara o micro en uso no se irrumpe.
-local function inCall()
+-- Ocultar o mover ventanas encima de una pantalla compartida es un desastre para quien
+-- te está viendo, así que mientras se esté compartiendo no se irrumpe.
+--
+-- Solo la cámara. El micro estaba aquí también y es lo que tumbó el mecanismo: un auricular
+-- USB (Poly VFOCUS2) con Teams abierto se queda con el stream de entrada abierto largos
+-- ratos después de colgar, así que defaultInputDevice():inUse() da `true` sin haber ninguna
+-- reunión (medido: `true` a las 12:02 sin llamada, `false` a las 13:32 del mismo día). Con
+-- eso las franjas se posponían hasta agotar los reintentos y se descartaban sin dejar
+-- rastro. Como señal de "estoy en llamada", el micro miente.
+-- A cambio, una reunión con la cámara apagada ya no pospone nada: aceptado a propósito.
+local function cameraInUse()
     local ok, result = pcall(function()
         if hs.camera then
             for _, cam in ipairs(hs.camera.allCameras() or {}) do
                 if cam.isInUse and cam:isInUse() then return true end
             end
         end
-        local mic = hs.audiodevice and hs.audiodevice.defaultInputDevice()
-        if mic and mic.inUse and mic:inUse() then return true end
         return false
     end)
     return (ok and result) == true
@@ -436,27 +442,50 @@ local function isWeekday()
     return day >= 2 and day <= 6
 end
 
+-- Último desenlace de cada franja, para poder preguntarlo en vivo con `wm.comms()`. La
+-- parte que fallaba era justo la muda: posponer no escribía nada y el descarte solo enseñaba
+-- una alerta que se va sola, así que a media mañana no había forma de saber qué había pasado.
+local commsState = {}
+
+local function noteComms(time, state)
+    commsState[time] = state
+    log("comunicación " .. time .. ": " .. state)
+end
+
 local function scheduleCommsWindows()
     local comms = config.modes and config.modes.work and config.modes.work.comms
     if not comms then return end
 
     for _, window in ipairs(comms.windows or {}) do
+        commsState[window.time] = "programada"
         hs.timer.doAt(window.time, "1d", function()
-            if currentMode ~= "work" then return end
-            if comms.weekdaysOnly ~= false and not isWeekday() then return end
+            if currentMode ~= "work" then
+                noteComms(window.time, "saltada: modo " .. tostring(currentMode))
+                return
+            end
+            if comms.weekdaysOnly ~= false and not isWeekday() then
+                noteComms(window.time, "saltada: no es día laborable")
+                return
+            end
 
+            local maxPostpones = comms.maxPostpones or 12
             local attempts = 0
             local function attempt()
-                if inCall() then
+                if cameraInUse() then
                     attempts = attempts + 1
-                    if attempts <= (comms.maxPostpones or 12) then
+                    if attempts <= maxPostpones then
+                        noteComms(window.time, string.format(
+                            "pospuesta, cámara en uso (intento %d/%d)", attempts, maxPostpones))
                         hs.timer.doAfter((comms.postponeMinutes or 2) * 60, attempt)
                     else
                         -- Visible a propósito: si la ventana se cae, hay que enterarse.
-                        hs.alert.show("📭 Comunicación de las " .. window.time .. " descartada")
+                        hs.alert.show("📭 Comunicación de las " .. window.time ..
+                                      " descartada (cámara en uso)")
+                        noteComms(window.time, "descartada: cámara en uso")
                     end
                     return
                 end
+                noteComms(window.time, "lanzada a las " .. os.date("%H:%M:%S"))
                 runCommsWindow(window, comms)
             end
             attempt()
@@ -572,6 +601,11 @@ _G.wm = {
             repuestos = #fallbackKeys,
             pantalla  = hs.screen.primaryScreen():frame().string
         })
+    end,
+    -- Por qué salió (o no) cada franja de comunicación. Un comando en vez de reconstruirlo
+    -- desde la consola cuando a media mañana no ha aparecido ninguna.
+    comms = function()
+        return hs.inspect({ camara = cameraInUse(), franjas = commsState })
     end,
     ventanas = function()
         local out = {}

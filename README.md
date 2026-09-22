@@ -248,8 +248,10 @@ real width, so moving things by hand or with Rectangle can't desync it.
 
 At 09:30, 11:30, 13:30 and 15:30 on weekdays, work mode brings up Slack plus mail or Teams at
 50/50 with a **📬 Tiempo de Comunicación** alert, and after 10 minutes `resetLayout()` puts
-everything back. They're **postponed while the camera or mic is in use**, because a window landing
-on top of a shared screen is a disaster. Kaizen doesn't schedule them. `hs -c "wm.comms()"` says how each slot ended.
+everything back. They're **postponed while the camera is in use**, because a window landing
+on top of a shared screen is a disaster. The mic isn't read: a USB headset with Teams running
+keeps it "in use" all day, which used to postpone every window until it was discarded. Kaizen
+doesn't schedule them. `hs -c "wm.comms()"` says how each slot ended.
 
 **Work mode** and **Kaizen mode** both: adapt the layout to the current screen (laptop display → everything fullscreen; external display → the multi-window layout), close every app except Hammerspoon, relaunch the configured apps, tile them, open the configured Chrome/Chromium tab sets, and bring the foreground apps up.
 
