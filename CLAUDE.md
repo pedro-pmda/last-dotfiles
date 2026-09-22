@@ -71,8 +71,8 @@ Linux has no official apt package, so the installer links the config and points 
 
 **Two profile schemas coexist**, chosen by what the profile declares — there is no flag:
 
-- **Sides** (`mac-work.lua`, declares `leftApps`/`rightApps`): everything lives at 50%, and a double tap expands to 2/3 centred. See below.
-- **Grid** (`mac-personal.lua`, declares `workAppLayout`): the original per-app `{position, width, …}` table. Untouched, and the suite's scenario E proves it behaves identically before and after the sides work.
+- **Sides** (declares `leftApps`/`rightApps`): everything lives at 50%, and a double tap expands to 2/3 centred. Both machines use it — `mac-work.lua` first, and `mac-personal.lua` since the migration. See below.
+- **Grid** (declares `workAppLayout`): the original per-app `{position, width, …}` table. No machine uses it any more, but `init.lua` still understands it and `test/profile-grid.lua` —the pre-migration `mac-personal.lua`, frozen— keeps scenario E exercising that path. Delete the fixture the day the grid support goes.
 
 `init.lua` does `require("app_config")`. `app_config.lua` is not in the repo — it's a symlink into `configs/hammerspoon-config/profiles/`, one self-contained file per machine (`mac-work.lua`, `mac-personal.lua`). `install-hammerspoon` lists them, asks which one, and symlinks both `init.lua` and the chosen profile into `~/.hammerspoon`. A new machine is a new `.lua` in `profiles/`; keep new options in sync across all of them.
 
@@ -99,13 +99,13 @@ The profile is two lists of names — `leftApps` and `rightApps` — and `init.l
 - Don't write `lastPressAt[name] = double and nil or now` — in Lua that yields `now` when `double` is true (`nil` is falsy, so `or` wins). That exact bug made a third rapid tap read as another double; scenario B6 locks it down.
 - **`modes` separates "where each app goes" from "what this mode launches"**, which the grid schema conflated — that's why Kaizen used to leave 10 of 18 keys unplaced.
 
-### Layout schema (grid, `mac-personal.lua`)
+### Layout schema (grid, `test/profile-grid.lua`)
 
 A layout entry is `{ name, position, width, vertical, height, screen? }`. Fractions are looked up in `getSizeFraction` — only thirds, quarters and `"2/2"` exist; anything else silently falls back to the full screen size.
 
 - `screen` is `"primary"` (default) or `"secondary"`. `resolveScreen` picks the first screen whose `id()` isn't the primary's, and **falls back to the primary when there's no second display** so windows never land off-screen.
 - `minWidthForTiling` (default 2000) is the tiling threshold. `shouldTile()` compares it against the primary screen's width; below it, `moveWindow` overrides every entry to centered fullscreen. This is decided per call, in locals — the profile table is never mutated, so docking/undocking needs no reload. Don't go back to matching `screen:name()`: the built-in display is `"Built-in Liquid Retina XDR Display"` on M-series MacBook Pros but `"Built-in Retina Display"` elsewhere.
-- Because `center` is symmetric, a three-column split forces the left and right columns to be equal — `1/4 · 2/4 · 1/4` is the only one the current fractions allow. `mac-work.lua` used to run it on the ultrawide; it now uses the sides schema instead.
+- Because `center` is symmetric, a three-column split forces the left and right columns to be equal — `1/4 · 2/4 · 1/4` is the only one the current fractions allow. `mac-work.lua` used to run it on the ultrawide; both profiles use the sides schema now.
 
 ### Comms windows
 
@@ -117,7 +117,7 @@ The mic used to count too (`hs.audiodevice`), and that silently killed the whole
 
 ### Tests
 
-`configs/hammerspoon-config/test/suite.sh` stubs `hs` wholesale and runs the real `init.lua` under `luajit` (Hammerspoon not required), the same trick as the lua-wm suite. Six scenarios: the 50/50 split, the expand/collapse cycle, the comms windows (postpone while the camera is in use, discard after the cap, and a mic that reads "in use" not counting as a call, and the timers surviving a garbage collection), the laptop-only fallback, that the grid schema still behaves for `mac-personal.lua`, and the eventtap fallback for a hotkey macOS refuses to register. The harness pins `os.date("*t").wday` — otherwise the weekday filter would pass Monday to Friday and fail on Saturday. If you touch `init.lua`, run the suite against the previous version too and check that it **fails** — scenario E is the exception: it must pass against both, because that's what proves `mac-personal.lua` didn't change.
+`configs/hammerspoon-config/test/suite.sh` stubs `hs` wholesale and runs the real `init.lua` under `luajit` (Hammerspoon not required), the same trick as the lua-wm suite. Seven scenarios: the 50/50 split, the expand/collapse cycle, the comms windows (postpone while the camera is in use, discard after the cap, a mic that reads "in use" not counting as a call, and the timers surviving a garbage collection), the laptop-only fallback, that the grid schema still behaves (against the frozen fixture), the eventtap fallback for a hotkey macOS refuses to register, and `mac-personal.lua` on the sides schema — where what's checked is what the grid couldn't do: same side in both modes, and an app Kaizen doesn't launch still landing where it belongs. The harness pins `os.date("*t").wday` — otherwise the weekday filter would pass Monday to Friday and fail on Saturday. If you touch `init.lua`, run the suite against the previous version too and check that it **fails** — scenario E is the exception: it must pass against both, because that's what proves the grid path didn't change.
 
 ## Linux window manager (lua-wm)
 

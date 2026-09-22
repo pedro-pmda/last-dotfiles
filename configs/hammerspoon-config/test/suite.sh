@@ -46,11 +46,14 @@ echo
 echo "─── D. Portátil solo, 1512px ───"
 run 1512 982 1 "$PROFILES/mac-work.lua" check-laptop.lua
 echo
-echo "─── E. Esquema antiguo intacto (mac-personal) ───"
-run 3440 1440 1 "$PROFILES/mac-personal.lua" check-classic.lua
+echo "─── E. Esquema de rejilla (perfil de prueba) ───"
+run 3440 1440 1 "$TEST_DIR/profile-grid.lua" check-classic.lua
 echo
 echo "─── F. F11 con el atajo ocupado por otro proceso ───"
 run 3440 1440 1 "$PROFILES/mac-work.lua" check-fallback.lua
+echo
+echo "─── G. mac-personal en el esquema de lados ───"
+run 3440 1440 1 "$PROFILES/mac-personal.lua" check-personal.lua
 echo
 if [[ $fails -eq 0 ]]; then
   echo "════ TODO OK ════"

@@ -283,8 +283,8 @@ Two profile schemas coexist, picked by what the profile declares — there's no 
 
 | Schema | Declares | Used by |
 |---|---|---|
-| **Sides** | `leftApps` / `rightApps` | `mac-work.lua` |
-| **Grid** | `workAppLayout` / `kaizenAppLayout` | `mac-personal.lua` |
+| **Sides** | `leftApps` / `rightApps` | `mac-work.lua`, `mac-personal.lua` |
+| **Grid** | `workAppLayout` / `kaizenAppLayout` | nobody — kept working, exercised by `test/profile-grid.lua` |
 
 Shared by both:
 
@@ -309,7 +309,9 @@ Grid schema:
 - `onDemandAppLayout` — apps that no mode launches, but that still get a position when you press their key
 
 `profiles/mac-work.lua` and `profiles/mac-personal.lua` are self-contained per-machine profiles —
-**keep new options in sync across all of them**. They don't have to use the same schema.
+**keep new options in sync across all of them**. They don't have to use the same schema, though
+both use Sides today; the app→key vocabulary is kept the same across machines for the apps that
+exist on both, so the muscle memory doesn't depend on which one you're sitting at.
 
 #### Tests
 
@@ -319,12 +321,13 @@ Grid schema:
 
 Stubs `hs` and runs the **real** `init.lua` under `luajit`, so it covers what you can't verify by
 reading: which pixels each window lands on, the 50% → 2/3 → 50% cycle, the comms windows
-including the postpone-while-in-a-call path, the laptop-only fallback, and that the grid schema
-still behaves for `mac-personal.lua`. Hammerspoon isn't needed to run it.
+(camera-in-use postpone, the discard after the cap, and the timers surviving a garbage
+collection), the laptop-only fallback, the grid schema, the eventtap fallback for a hotkey macOS
+refuses to register, and `mac-personal.lua` on Sides. Hammerspoon isn't needed to run it.
 
 If you touch `init.lua`, run the suite against the previous version too and check that it
-**fails** — with one exception: scenario E must pass against both, because that's what proves
-`mac-personal.lua` didn't change.
+**fails** — with one exception: scenario E must pass against both, because that's what proves the
+grid schema still behaves.
 
 ### `wm-linux-config/` — 🐧 window management (Linux)
 
