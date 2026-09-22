@@ -160,7 +160,7 @@ return {
                     "https://master.dev/dashboard/",
                     "https://anthropic.skilljar.com/",
                     "https://englishonline.britishcouncil.org/platform/nui/reactui/build/index.html?dd613#/login",
-                    "https://www.edclub.com/sportal/"
+                    "https://monkeytype.com/"
                 }
             },
 

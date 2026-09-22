@@ -52,7 +52,7 @@ return {
             "https://frontendmasters.com/login/?return=%2Fmy-account%2Flibrary%2F",
             "https://anthropic.skilljar.com/",
             "https://englishonline.britishcouncil.org/platform/nui/reactui/build/index.html?dd613#/login",
-            "https://www.edclub.com/sportal/",            
+            "https://monkeytype.com/",
         }
     },
 
