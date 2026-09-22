@@ -77,4 +77,24 @@ H.check("no ha irrumpido", not H.alertsMatch("📬 Tiempo de Comunicación"))
 H.check("avisa del descarte con el motivo", H.alertsMatch("descartada (cámara en uso)"))
 H.expectRect("Slack sigue en su lado", "Slack", 1720, 0, 1720, 1440)
 
+-- Lo que de verdad tenía muerto el mecanismo: Hammerspoon no retiene los temporizadores, y
+-- los de la hora y los del reintento de 2 min se los llevaba el recolector sin un error ni
+-- una línea de log. Los cortos de colocar ventanas sobrevivían porque no da tiempo a un GC.
+print("C9 · el recolector no se lleva ni la franja ni el reintento")
+H.alerts = {}
+H.cameraInUse = true
+H.scheduled["15:30"]()     -- se pospone: encola el reintento de 2 min
+H.collect()
+H.cameraInUse = false
+H.fireLong(60)             -- el reintento, si sigue vivo
+H.flush()
+H.check("el reintento sobrevive y la ventana sale", H.alertsMatch("📬 Tiempo de Comunicación"))
+
+H.collect()
+local vivas = 0
+for _, t in ipairs({ "09:30", "11:30", "13:30", "15:30" }) do
+    if H.scheduledTimers[t] ~= nil then vivas = vivas + 1 end
+end
+H.check("las cuatro franjas siguen programadas tras el GC", vivas == 4, vivas .. "/4")
+
 H.done()

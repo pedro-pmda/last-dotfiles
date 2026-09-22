@@ -28,6 +28,37 @@ local function listHas(list, value)
 end
 
 --------------------------------------------------------------------------------
+-- Temporizadores
+--------------------------------------------------------------------------------
+-- Hammerspoon NO retiene los temporizadores: si se tira la referencia que devuelven
+-- `doAfter` y `doAt`, el recolector se los lleva y no disparan nunca. Los cortos (2-5 s,
+-- colocar ventanas) sobrevivían de milagro, porque no da tiempo a que pase un GC; los
+-- largos morían siempre, y eso es lo que tenía muertas las ventanas de comunicación: el
+-- `doAt` de la hora y el reintento de 2 min desaparecían sin dejar rastro ni error.
+-- Medido con sondas en el Hammerspoon vivo: `doAfter(120)` sin retener no dispara tras un
+-- `collectgarbage()`; esa misma, retenida, sí. La tabla vive en una global por el mismo
+-- motivo que el tap de teclado de las teclas de repuesto.
+_G.wmTimers = { live = {}, daily = {}, nextId = 0 }
+
+local function later(seconds, fn)
+    local timers = _G.wmTimers
+    timers.nextId = timers.nextId + 1
+    local id = timers.nextId
+    timers.live[id] = hs.timer.doAfter(seconds, function()
+        timers.live[id] = nil          -- ya disparó: que la tabla no crezca sin fin
+        fn()
+    end)
+    return timers.live[id]
+end
+
+-- Los de hora fija repiten a diario: se retienen mientras viva esta configuración.
+local function daily(time, interval, fn)
+    local timer = hs.timer.doAt(time, interval, fn)
+    table.insert(_G.wmTimers.daily, timer)
+    return timer
+end
+
+--------------------------------------------------------------------------------
 -- Apps
 --------------------------------------------------------------------------------
 
@@ -238,7 +269,7 @@ local function onAppKey(name)
         local wasRunning = getApp(name) ~= nil
         launchOrFocusApp(name)
         if not wasRunning then
-            hs.timer.doAfter(config.appLaunchDelay, function() positionApp(name) end)
+            later(config.appLaunchDelay, function() positionApp(name) end)
         end
         return
     end
@@ -263,7 +294,7 @@ local function onAppKey(name)
         local wasRunning = getApp(name) ~= nil
         launchOrFocusApp(name)
         if not wasRunning then
-            hs.timer.doAfter(config.appLaunchDelay, function() positionApp(name) end)
+            later(config.appLaunchDelay, function() positionApp(name) end)
         end
         return
     end
@@ -281,7 +312,7 @@ local function onAppKey(name)
     local function expand()
         if applyGeometry(name, expandGeometryFor(name)) then expandedApp = name end
     end
-    if wasRunning then expand() else hs.timer.doAfter(config.appLaunchDelay, expand) end
+    if wasRunning then expand() else later(config.appLaunchDelay, expand) end
 end
 
 --------------------------------------------------------------------------------
@@ -365,12 +396,12 @@ local function enterMode(name)
     announceScreenMode()
     closeAllWindows()
 
-    hs.timer.doAfter(2, function()
+    later(2, function()
         for _, appName in ipairs(spec.launch or {}) do launchOrFocusApp(appName) end
-        hs.timer.doAfter(config.appLaunchDelay, function()
+        later(config.appLaunchDelay, function()
             -- Tres pasadas: algunas apps tardan en tener ventana y la primera no las pilla.
             for i = 0, 2 do
-                hs.timer.doAfter(i * 2, function()
+                later(i * 2, function()
                     for _, appName in ipairs(spec.launch or {}) do
                         moveWindow(appName, spec.layout)
                     end
@@ -379,7 +410,7 @@ local function enterMode(name)
         end)
     end)
 
-    hs.timer.doAfter((config.appLaunchDelay or 5) + 6, function()
+    later((config.appLaunchDelay or 5) + 6, function()
         pcall(function() openBrowserSet("Google Chrome", spec.chrome) end)
         pcall(function() openBrowserSet("Chromium", spec.chromium) end)
         pcall(function() bringAppsToFront(spec.foreground) end)
@@ -424,14 +455,14 @@ local function runCommsWindow(window, comms)
     launchOrFocusApp(window.left)
     launchOrFocusApp(window.right)
 
-    hs.timer.doAfter(config.appLaunchDelay or 5, function()
+    later(config.appLaunchDelay or 5, function()
         applyGeometry(window.left,  SIDE_GEOMETRY.left)
         applyGeometry(window.right, SIDE_GEOMETRY.right)
         launchOrFocusApp(window.left)
     end)
 
     local minutes = comms.durationMinutes or 10
-    hs.timer.doAfter(minutes * 60, function()
+    later(minutes * 60, function()
         hs.alert.show("🔕 Fin del tiempo de comunicación")
         resetLayout()
     end)
@@ -458,7 +489,7 @@ local function scheduleCommsWindows()
 
     for _, window in ipairs(comms.windows or {}) do
         commsState[window.time] = "programada"
-        hs.timer.doAt(window.time, "1d", function()
+        daily(window.time, "1d", function()
             if currentMode ~= "work" then
                 noteComms(window.time, "saltada: modo " .. tostring(currentMode))
                 return
@@ -476,7 +507,7 @@ local function scheduleCommsWindows()
                     if attempts <= maxPostpones then
                         noteComms(window.time, string.format(
                             "pospuesta, cámara en uso (intento %d/%d)", attempts, maxPostpones))
-                        hs.timer.doAfter((comms.postponeMinutes or 2) * 60, attempt)
+                        later((comms.postponeMinutes or 2) * 60, attempt)
                     else
                         -- Visible a propósito: si la ventana se cae, hay que enterarse.
                         hs.alert.show("📭 Comunicación de las " .. window.time ..

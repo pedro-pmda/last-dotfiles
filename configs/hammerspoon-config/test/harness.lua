@@ -14,7 +14,11 @@ local SCREEN_H = tonumber(os.getenv("SCREEN_H") or "1440")
 local SCREENS  = tonumber(os.getenv("SCREENS") or "1")
 
 H.alerts    = {}
-H.timers    = {}
+-- Valores débiles a propósito: Hammerspoon no retiene los temporizadores, así que uno cuya
+-- única referencia sea esta tabla desaparece en cuanto pasa el recolector. H.collect()
+-- simula ese paso — es lo que dejaba muertas las franjas de comunicación y sus reintentos.
+H.timers          = setmetatable({}, { __mode = "v" })
+H.scheduledTimers = setmetatable({}, { __mode = "v" })
 H.scheduled = {}
 H.bindings  = {}
 H.apps      = {}
@@ -177,16 +181,23 @@ end
 
 hs.timer = {}
 
+local nextTimerId = 0
+
 function hs.timer.doAfter(seconds, fn)
     local t = { fn = fn, at = seconds, stopped = false }
     t.stop = function(self) self.stopped = true end
-    table.insert(H.timers, t)
+    nextTimerId = nextTimerId + 1
+    H.timers[nextTimerId] = t
     return t
 end
 
+-- H.scheduled guarda la función (es como los tests disparan una franja a mano) y
+-- H.scheduledTimers el objeto temporizador, que es lo que el recolector puede llevarse.
 function hs.timer.doAt(time, _, fn)
+    local t = { time = time, fn = fn, stop = function() end }
     H.scheduled[time] = fn
-    return { stop = function() end }
+    H.scheduledTimers[time] = t
+    return t
 end
 
 function hs.timer.absoluteTime() return H.clock end
@@ -210,16 +221,25 @@ end
 
 -- Corre los temporizadores cortos (arranque y colocación). Los largos —los 10 min de
 -- la ventana de comunicación— se quedan esperando a fireLong().
+-- Saca de la tabla débil los que cumplan el filtro. `pairs`, no `ipairs`: tras un GC la
+-- tabla tiene huecos justo donde estaban los temporizadores que nadie retenía.
+local function takeTimers(keep)
+    local taken = {}
+    for id, t in pairs(H.timers) do
+        if keep(t) then
+            table.insert(taken, t)
+            H.timers[id] = nil
+        end
+    end
+    table.sort(taken, function(a, b) return a.at < b.at end)
+    return taken
+end
+
 function H.flush(maxSeconds, rounds)
     maxSeconds = maxSeconds or 30
     for _ = 1, (rounds or 8) do
-        local ready, later = {}, {}
-        for _, t in ipairs(H.timers) do
-            if t.at <= maxSeconds then table.insert(ready, t) else table.insert(later, t) end
-        end
-        H.timers = later
+        local ready = takeTimers(function(t) return t.at <= maxSeconds end)
         if #ready == 0 then break end
-        table.sort(ready, function(a, b) return a.at < b.at end)
         for _, t in ipairs(ready) do
             if not t.stopped then t.fn() end
         end
@@ -227,14 +247,16 @@ function H.flush(maxSeconds, rounds)
 end
 
 function H.fireLong(minSeconds)
-    local ready, later = {}, {}
-    for _, t in ipairs(H.timers) do
-        if t.at >= minSeconds then table.insert(ready, t) else table.insert(later, t) end
-    end
-    H.timers = later
-    for _, t in ipairs(ready) do
+    for _, t in ipairs(takeTimers(function(t) return t.at >= minSeconds end)) do
         if not t.stopped then t.fn() end
     end
+end
+
+-- Pasa el recolector. Un temporizador que init.lua haya programado tirando la referencia
+-- desaparece aquí, igual que en Hammerspoon.
+function H.collect()
+    collectgarbage("collect")
+    collectgarbage("collect")
 end
 
 -- Pulsa una tecla. `gapMs` es lo que ha pasado desde la pulsación anterior: por
