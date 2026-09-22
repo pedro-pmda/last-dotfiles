@@ -214,7 +214,8 @@ Three things worth knowing about this model:
 
 | Key | Action |
 |---|---|
-| `F1`–`F12` | Launch or focus the app bound to that key |
+| `F1`–`F10` | Launch or focus the app bound to that key, at its side, 50% |
+| `F·` ×2 | Expand it to 2/3, centred. Again, back to its half |
 | `F11` | Work mode |
 | `F12` | Reset layout — re-place the windows that are already open |
 | `Shift+F10` | Emoji picker (`Ctrl+Cmd+Space`) |
@@ -223,6 +224,32 @@ Three things worth knowing about this model:
 
 These are `mac-work.lua`'s bindings; each profile assigns its own keys, so check the profile you
 actually have linked.
+
+#### Sides, not columns
+
+`mac-work.lua` splits the screen **50/50** and gives every app a fixed side, the same in both
+modes. The side isn't cosmetic: **two apps on the same side always cover each other**, so it
+encodes which pairs you can see at once.
+
+- **Left — where you write:** IntelliJ, VS Code, Kiro, DBeaver, Obsidian. Genuinely mutually
+  exclusive; you don't edit in two of them at once, so covering each other costs nothing.
+- **Right — what accompanies it:** Ghostty, the browsers, the AI chats, Slack/Teams/Outlook,
+  OpenLens, Docker, Finder, WebPomodoro.
+
+That makes editor+terminal, editor+browser, editor+AI and notes+browser all work. It also puts
+macOS notifications (which land top-right) over a browser or a chat rather than over your editor.
+
+A **double tap** expands a window to 2/3 centred and a second one returns it to its half; going to
+another app collapses it on the way. `expandFull` overrides the expanded size to full screen —
+only Chrome Canary, for demos. Nothing is remembered: the state is read back from the window's
+real width, so moving things by hand or with Rectangle can't desync it.
+
+#### Communication windows
+
+At 09:30, 11:30, 13:30 and 15:30 on weekdays, work mode brings up Slack plus mail or Teams at
+50/50 with a **📬 Tiempo de Comunicación** alert, and after 10 minutes `resetLayout()` puts
+everything back. They're **postponed while the camera or mic is in use**, because a window landing
+on top of a shared screen is a disaster. Kaizen doesn't schedule them. `hs -c "wm.comms()"` says how each slot ended.
 
 **Work mode** and **Kaizen mode** both: adapt the layout to the current screen (laptop display → everything fullscreen; external display → the multi-window layout), close every app except Hammerspoon, relaunch the configured apps, tile them, open the configured Chrome/Chromium tab sets, and bring the foreground apps up.
 
@@ -250,20 +277,52 @@ Re-running the installer switches profiles. The first run backs up any real file
 The installer only prompts when it has a terminal. Inside an unattended `./run`, it keeps the
 profile that's already linked, or skips with a notice if the machine was never configured.
 
-The config table holds:
+Two profile schemas coexist, picked by what the profile declares — there's no flag to set:
+
+| Schema | Declares | Used by |
+|---|---|---|
+| **Sides** | `leftApps` / `rightApps` | `mac-work.lua` |
+| **Grid** | `workAppLayout` / `kaizenAppLayout` | `mac-personal.lua` |
+
+Shared by both:
 
 - `functionKeys` — key + modifiers + action (an app name, or `EMOJI` / `WORK_MODE` / `KAIZEN_MODE` / `RESET_LAYOUT` / `RELOAD_HAMMERSPOON`)
+- `appPaths` — explicit `.app` paths for apps outside `/Applications` (`launchOrFocus` can't find those)
+- `appIds` — bundle IDs. Needed when the running name differs from the `.app` name (`Visual Studio Code` runs as `Code`) **and** when one name is a prefix of another: `hs.application.get` matches by substring, so without it `Google Chrome` can resolve to `Google Chrome Canary`
+- `minWidthForTiling` — below this primary-screen width, everything goes centred fullscreen instead (default 2000)
+- `appLaunchDelay`, `debugMode`
+
+Sides schema:
+
+- `leftApps` / `rightApps` — two lists of names. That's the whole geometry; `init.lua` derives the rest
+- `expandFull` — apps whose double tap goes to full screen instead of 2/3
+- `doubleTapMs` — window for the double tap (default 400)
+- `modes.work` / `modes.kaizen` — each with `launch` (what this mode opens), `foreground`, `chrome`, `chromium`; `modes.work.comms` holds the timed windows. Separating `launch` from the side map is what fixed Kaizen leaving most keys unplaced
+
+Grid schema:
+
 - `workAppLayout` / `kaizenAppLayout` — per-app `position` (`left|center|right`), `vertical` (`top|center|bottom`) and `width`/`height` as fractions (`"1/3"`, `"2/3"`, `"3/4"`, `"4/4"`…)
 - `workChromeConfig` / `workChromiumConfig` / `kaizenChromeConfig` / `kaizenChromiumConfig` — the tab sets each mode opens
 - `foregroundApps` — what ends up on top per mode
 - `onDemandAppLayout` — apps that no mode launches, but that still get a position when you press their key
-- `appPaths` — explicit `.app` paths for apps outside `/Applications` (`launchOrFocus` can't find those)
-- `appIds` — bundle IDs for apps whose running name differs from the `.app` name (`Visual Studio Code` runs as `Code`)
-- `minWidthForTiling` — below this primary-screen width, everything goes centred fullscreen instead (default 2000)
-- `appLaunchDelay`, `debugMode`
 
 `profiles/mac-work.lua` and `profiles/mac-personal.lua` are self-contained per-machine profiles —
-**keep new options in sync across all of them**.
+**keep new options in sync across all of them**. They don't have to use the same schema.
+
+#### Tests
+
+```bash
+./configs/hammerspoon-config/test/suite.sh
+```
+
+Stubs `hs` and runs the **real** `init.lua` under `luajit`, so it covers what you can't verify by
+reading: which pixels each window lands on, the 50% → 2/3 → 50% cycle, the comms windows
+including the postpone-while-in-a-call path, the laptop-only fallback, and that the grid schema
+still behaves for `mac-personal.lua`. Hammerspoon isn't needed to run it.
+
+If you touch `init.lua`, run the suite against the previous version too and check that it
+**fails** — with one exception: scenario E must pass against both, because that's what proves
+`mac-personal.lua` didn't change.
 
 ### `wm-linux-config/` — 🐧 window management (Linux)
 

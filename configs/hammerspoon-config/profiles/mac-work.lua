@@ -6,6 +6,9 @@ return {
     -- todo va a pantalla completa. El ultrawide (3440) tilea, la interna (1512) no.
     minWidthForTiling = 2000,
 
+    -- Dos pulsaciones de la misma tecla dentro de esta ventana cuentan como doble toque.
+    doubleTapMs = 400,
+
     -- Una tecla = un dominio. Sin modificador la app principal, con shift la variante.
     -- Bloques: F1-F4 comunicar · F5-F8 construir · F9-F12 personal/meta
     functionKeys = {
@@ -42,102 +45,133 @@ return {
         { key = "F12", modifiers = {"shift"}, action = "RELOAD_HAMMERSPOON" }
     },
 
-    workChromeConfig = {
-        urls = {
-            "https://zooplus.atlassian.net/jira/software/c/projects/DPF/boards/525",
-            "https://src.private.zooplus.net/dashboard",            
-            "https://zpl.awsapps.com/start/#/?tab=accounts",
-            "https://dna-jenkins.cicdk8sp.int.aws.zooplus.io/job/Zoobrain/job/DZB/job/zoobrain/",
-            "https://sonarqube.private.zooplus.net/dashboard?id=dzb%3Azoobrain%3Aui",
-            "https://zoobrain.private.zooplus.net",
-            "https://grafana.dnap.int.aws.zooplus.io/login",
-            "https://zooplus.atlassian.net/wiki/spaces/DAC/overview",
-            "https://app.mural.co/t/zooplus8237/home"
+    ---------------------------------------------------------------------------
+    -- El mapa de lados
+    ---------------------------------------------------------------------------
+    -- Todo vive al 50% (1720 px en el ultrawide). Un único mapa para los dos modos:
+    -- así F1 pone Chrome a la derecha estés donde estés, y es imposible que trabajo
+    -- y kaizen coloquen distinto.
+    --
+    -- El criterio no es estético: el lado decide QUÉ PUEDES VER A LA VEZ, porque dos
+    -- apps del mismo lado se tapan entre sí siempre. Los pares que de verdad usas
+    -- (editor+terminal, editor+navegador, editor+IA, notas+navegador) tienen todos la
+    -- superficie de escritura como constante, así que esa se queda a la izquierda y
+    -- todo lo que la acompaña a la derecha.
+
+    -- Izquierda: donde escribes. Son alternativas de verdad — no editas en IntelliJ y
+    -- en VS Code a la vez, así que taparse entre ellas no cuesta nada.
+    leftApps = {
+        "IntelliJ IDEA",
+        "Visual Studio Code",
+        "Kiro",
+        "DBeaver",
+        "Obsidian"
+    },
+
+    -- Derecha: lo que acompaña a lo que escribes. Aquí caen también las notificaciones
+    -- de macOS (arriba a la derecha), y es mucho menos dañino que tapen una consulta.
+    rightApps = {
+        "Ghostty",
+        "Google Chrome",
+        "Google Chrome Canary",
+        "Claude",
+        "Chromium",
+        "LM Studio",
+        "Slack",
+        "Microsoft Teams",
+        "Microsoft 365 Copilot",
+        "Microsoft Outlook",
+        "OpenLens",
+        "Docker",
+        "Cyberduck",
+        "Finder",
+        "WebPomodoro"
+    },
+
+    -- El doble toque expande al centro a 2/3. Estas van a pantalla completa en su
+    -- lugar: una demo o una prueba de navegador no cabe en dos tercios.
+    expandFull = { "Google Chrome Canary" },
+
+    ---------------------------------------------------------------------------
+    -- Los dos modos
+    ---------------------------------------------------------------------------
+    -- Solo cambian qué apps se lanzan y qué pestañas se abren. Los lados y las teclas
+    -- son los mismos, que es lo que impide que un modo descoloque respecto al otro.
+    modes = {
+        work = {
+            launch = {
+                "IntelliJ IDEA", "Visual Studio Code", "Kiro", "DBeaver", "Obsidian",
+                "Ghostty", "Google Chrome", "Google Chrome Canary", "Claude", "Chromium",
+                "LM Studio", "Slack", "Microsoft Teams", "Microsoft 365 Copilot",
+                "Microsoft Outlook", "OpenLens", "WebPomodoro", "Finder"
+            },
+            foreground = { "Google Chrome", "IntelliJ IDEA" },
+
+            chrome = {
+                urls = {
+                    "https://zooplus.atlassian.net/jira/software/c/projects/DPF/boards/525",
+                    "https://src.private.zooplus.net/dashboard",
+                    "https://zpl.awsapps.com/start/#/?tab=accounts",
+                    "https://dna-jenkins.cicdk8sp.int.aws.zooplus.io/job/Zoobrain/job/DZB/job/zoobrain/",
+                    "https://sonarqube.private.zooplus.net/dashboard?id=dzb%3Azoobrain%3Aui",
+                    "https://zoobrain.private.zooplus.net",
+                    "https://grafana.dnap.int.aws.zooplus.io/login",
+                    "https://zooplus.atlassian.net/wiki/spaces/DAC/overview",
+                    "https://app.mural.co/t/zooplus8237/home"
+                }
+            },
+
+            chromium = {
+                urls = {
+                    "https://gemini.google.com/app?hl=es-ES"
+                }
+            },
+
+            -- Lo único que interrumpe es el reloj. Slack va siempre a la izquierda
+            -- porque es el que trías primero; correo y Teams se alternan para que
+            -- ninguno se acumule más de cuatro horas. Al vencer, RESET_LAYOUT.
+            comms = {
+                windows = {
+                    { time = "09:30", left = "Slack", right = "Microsoft Outlook" },
+                    { time = "11:30", left = "Slack", right = "Microsoft Teams" },
+                    { time = "13:30", left = "Slack", right = "Microsoft Outlook" },
+                    { time = "15:30", left = "Slack", right = "Microsoft Teams" }
+                },
+                durationMinutes = 10,
+                weekdaysOnly = true,
+                -- Una ventana saltando encima de una pantalla compartida es un
+                -- desastre: si hay cámara o micro en uso, se pospone y reintenta.
+                postponeMinutes = 2,
+                maxPostpones = 12
+            }
+        },
+
+        kaizen = {
+            launch = {
+                "Google Chrome", "Visual Studio Code", "Ghostty", "Chromium",
+                "Obsidian", "WebPomodoro", "LM Studio", "Google Chrome Canary"
+            },
+            foreground = { "Google Chrome", "Obsidian" },
+
+            chrome = {
+                urls = {
+                    "https://mail.google.com/mail/u/0/#inbox",
+                    "https://calendar.google.com/calendar/u/0/r",
+                    "https://master.dev/dashboard/",
+                    "https://anthropic.skilljar.com/",
+                    "https://englishonline.britishcouncil.org/platform/nui/reactui/build/index.html?dd613#/login",
+                    "https://www.edclub.com/sportal/"
+                }
+            },
+
+            chromium = {
+                urls = {
+                    "https://gemini.google.com/app?hl=es-ES",
+                    "https://claude.ai/new"
+                }
+            }
+            -- Sin `comms`: los horarios de trabajo no suenan en kaizen.
         }
-    },
-
-    workChromiumConfig = {
-        urls = {
-            "https://gemini.google.com/app?hl=es-ES"
-        }
-    },
-
-    kaizenChromeConfig = {
-        urls = {
-            "https://mail.google.com/mail/u/0/#inbox",
-            "https://calendar.google.com/calendar/u/0/r",
-            "https://master.dev/dashboard/",
-            "https://anthropic.skilljar.com/",
-            "https://englishonline.britishcouncil.org/platform/nui/reactui/build/index.html?dd613#/login",
-            "https://www.edclub.com/sportal/",            
-        }
-    },
-
-    kaizenChromiumConfig = {
-        urls = {
-            "https://gemini.google.com/app?hl=es-ES",
-            "https://claude.ai/new"
-        }
-    },
-        
-    -- Tres columnas en el ultrawide: 1/4 comunicar · 2/4 trabajar · 1/4 IA.
-    -- `center` es simétrico, así que las dos columnas de los lados tienen que medir
-    -- lo mismo: 1/4 + 2/4 + 1/4 es el único reparto de tres que sale con estas fracciones.
-    -- La columna derecha es exclusiva de los chats de IA: nada más va ahí, o dejan de
-    -- estar visibles en cuanto pulsas otra tecla.
-    workAppLayout = {
-        -- Comunicar: se tapan entre sí a propósito, son vistazos
-        { name = "Slack", position = "left", width = "1/4", vertical = "top", height = "3/3" },
-        { name = "Microsoft Teams", position = "left", width = "1/4", vertical = "top", height = "3/3" },
-        { name = "Microsoft Outlook", position = "left", width = "1/4", vertical = "top", height = "3/3" },
-        { name = "Finder", position = "left", width = "1/4", vertical = "top", height = "3/3" },
-
-        -- Trabajar: la superficie que más píxeles pide
-        { name = "IntelliJ IDEA", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Visual Studio Code", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Ghostty", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Google Chrome", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "DBeaver", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "OpenLens", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Kiro", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-
-        -- IA: columna reservada, siempre presente
-        { name = "Claude", position = "right", width = "1/4", vertical = "top", height = "3/3" },
-        { name = "Microsoft 365 Copilot", position = "right", width = "1/4", vertical = "top", height = "3/3" },
-        { name = "Chromium", position = "right", width = "1/4", vertical = "top", height = "3/3" },
-
-        -- Pantalla pequeña: las tres a pantalla completa, se tapan entre sí y
-        -- alternas con F9 / Shift+F9 / Alt+F2
-        { name = "Obsidian", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "WebPomodoro", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "LM Studio", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-
-        -- Escape deliberado: pantalla completa para demos y pruebas
-        { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" }
-    },
-
-    -- Las dos únicas que no arrancan con el layout: pesan y no se usan a diario.
-    -- Tienen sitio reservado para cuando las abres a mano con Shift+F7 / Shift+F8.
-    onDemandAppLayout = {
-        { name = "Docker", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Cyberduck", position = "left", width = "1/4", vertical = "top", height = "3/3" }
-    },
-
-    -- Misma geometría, otros inquilinos: en kaizen la IA es Chromium (Gemini y Claude web)
-    kaizenAppLayout = {
-        { name = "Google Chrome", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Visual Studio Code", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Ghostty", position = "center", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Chromium", position = "right", width = "1/4", vertical = "top", height = "3/3" },
-        { name = "Obsidian", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "WebPomodoro", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "LM Studio", screen = "secondary", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "Google Chrome Canary", position = "center", width = "4/4", vertical = "center", height = "4/4" }
-    },
-
-    foregroundApps = {
-        work = { "Obsidian", "IntelliJ IDEA" },
-        kaizen = { "Google Chrome", "Obsidian" }
     },
 
     -- Apps installed outside the standard /Applications folders need an explicit path
@@ -146,10 +180,12 @@ return {
         ["WebPomodoro"] = "/Volumes/SecondBrain/Applications/WebPomodoro.app"
     },
 
-    -- Apps que corren con un nombre distinto al de su .app: sin su bundle ID
-    -- hs.application.get() no las encuentra y nunca se colocan.
+    -- Apps que corren con un nombre distinto al de su .app, o cuyo nombre es prefijo de
+    -- otro: hs.application.get() hace match por subcadena, así que sin el bundle ID
+    -- "Google Chrome" puede resolver a "Google Chrome Canary".
     appIds = {
-        ["Visual Studio Code"] = "com.microsoft.VSCode"
+        ["Visual Studio Code"] = "com.microsoft.VSCode",
+        ["Google Chrome"]      = "com.google.Chrome",
+        ["Google Chrome Canary"] = "com.google.Chrome.canary"
     }
-
 }

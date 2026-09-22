@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bash + Lua — no build step, no package manager. Two test suites, both for things you can't verify by reading: `configs/wm-linux-config/test/` (lua-wm only runs on Linux) and `test/run-interactive-test.py` (drives `./run -i` through a real pty). `README.md` documents every script for humans; this file is the working context.
+Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bash + Lua — no build step, no package manager. Three test suites, all for things you can't verify by reading: `configs/wm-linux-config/test/` (lua-wm only runs on Linux), `configs/hammerspoon-config/test/` (which pixels each window actually lands on) and `test/run-interactive-test.py` (drives `./run -i` through a real pty). The two window-manager suites share a trick: stub the platform API, run the real `init.lua` under `luajit`. `README.md` documents every script for humans; this file is the working context.
 
 ## Map
 
@@ -67,7 +67,12 @@ Linux has no official apt package, so the installer links the config and points 
 
 ## Hammerspoon
 
-`configs/hammerspoon-config/init.lua` is the whole window/hotkey system: F1–F12 launch or focus apps, `F11` Work mode, `F12` reset layout, `Shift+F11` Kaizen mode, `Shift+F12` reload, `Shift+F10` emoji picker (per `mac-work.lua` — each profile binds its own keys). On startup it runs Work mode. Layouts (app, `"1/3"`-style width/height fractions, position) and browser tab sets live in the config table, never in `init.lua`.
+`configs/hammerspoon-config/init.lua` is the whole window/hotkey system: F1–F12 launch or focus apps, `F11` Work mode, `F12` reset layout, `Shift+F11` Kaizen mode, `Shift+F12` reload, `Shift+F10` emoji picker (per `mac-work.lua` — each profile binds its own keys). On startup it runs Work mode. Layouts and browser tab sets live in the config table, never in `init.lua`.
+
+**Two profile schemas coexist**, chosen by what the profile declares — there is no flag:
+
+- **Sides** (`mac-work.lua`, declares `leftApps`/`rightApps`): everything lives at 50%, and a double tap expands to 2/3 centred. See below.
+- **Grid** (`mac-personal.lua`, declares `workAppLayout`): the original per-app `{position, width, …}` table. Untouched, and the suite's scenario E proves it behaves identically before and after the sides work.
 
 `init.lua` does `require("app_config")`. `app_config.lua` is not in the repo — it's a symlink into `configs/hammerspoon-config/profiles/`, one self-contained file per machine (`mac-work.lua`, `mac-personal.lua`). `install-hammerspoon` lists them, asks which one, and symlinks both `init.lua` and the chosen profile into `~/.hammerspoon`. A new machine is a new `.lua` in `profiles/`; keep new options in sync across all of them.
 
@@ -79,13 +84,34 @@ Apps outside `/Applications` need an entry in `appPaths` (only `mac-work.lua` ha
 
 The **app-name vocabulary is per-OS and can't be shared**: macOS uses `.app` names (plus `appIds` bundle IDs), Linux uses the `.desktop` `Name=` matched against `WM_CLASS`. They coincide by luck for vendor apps and diverge otherwise — `IntelliJ IDEA Ultimate` (Linux) vs `IntelliJ IDEA` (macOS).
 
-### Layout schema
+### Sides schema (`mac-work.lua`)
+
+The profile is two lists of names — `leftApps` and `rightApps` — and `init.lua` derives the geometry (`buildSideLayout`). Everything sits at 50%; there are no coordinates in the profile.
+
+- **The side decides what you can see at once.** Two apps on the same side always cover each other, so the criterion is which pairs you need simultaneously, not where each looks nicest. Left is the writing surface (IDEs, DBeaver, Obsidian — genuinely mutually exclusive); right is everything that accompanies it. That makes editor+terminal, editor+browser, editor+AI and notes+browser all work.
+- **A double tap expands to 2/3 centred, and again returns it to its half.** `expandFull` overrides the expanded size to full screen (only Chrome Canary, for demos).
+- **The rung is measured, not remembered.** `isExpanded` compares the window's real width against the expanded width, so moving windows by hand or with Rectangle can't desync it. Only the *name* of the expanded app is kept, and it's verified by measuring before use.
+- `hs.window.animationDuration = 0` is a **correctness requirement**, not cosmetics: while animating, `win:frame()` returns the *destination* frame, so every measurement would lie.
+- Don't write `lastPressAt[name] = double and nil or now` — in Lua that yields `now` when `double` is true (`nil` is falsy, so `or` wins). That exact bug made a third rapid tap read as another double; scenario B6 locks it down.
+- **`modes` separates "where each app goes" from "what this mode launches"**, which the grid schema conflated — that's why Kaizen used to leave 10 of 18 keys unplaced.
+
+### Layout schema (grid, `mac-personal.lua`)
 
 A layout entry is `{ name, position, width, vertical, height, screen? }`. Fractions are looked up in `getSizeFraction` — only thirds, quarters and `"2/2"` exist; anything else silently falls back to the full screen size.
 
 - `screen` is `"primary"` (default) or `"secondary"`. `resolveScreen` picks the first screen whose `id()` isn't the primary's, and **falls back to the primary when there's no second display** so windows never land off-screen.
 - `minWidthForTiling` (default 2000) is the tiling threshold. `shouldTile()` compares it against the primary screen's width; below it, `moveWindow` overrides every entry to centered fullscreen. This is decided per call, in locals — the profile table is never mutated, so docking/undocking needs no reload. Don't go back to matching `screen:name()`: the built-in display is `"Built-in Liquid Retina XDR Display"` on M-series MacBook Pros but `"Built-in Retina Display"` elsewhere.
-- Because `center` is symmetric, a three-column split forces the left and right columns to be equal — `1/4 · 2/4 · 1/4` is the only one the current fractions allow. `mac-work.lua` uses it on a 3440px ultrawide: comms left, work surface center, **AI chats alone in the right column** (they stop being always-visible the moment anything else shares that slot).
+- Because `center` is symmetric, a three-column split forces the left and right columns to be equal — `1/4 · 2/4 · 1/4` is the only one the current fractions allow. `mac-work.lua` used to run it on the ultrawide; it now uses the sides schema instead.
+
+### Comms windows
+
+Four times a day (09:30 / 11:30 / 13:30 / 15:30, weekdays), work mode only, `mac-work.lua`'s `modes.work.comms`. Two apps come up at 50/50 — Slack always on the left, since it's what you triage first — with a **📬 Tiempo de Comunicación** alert, and after 10 minutes `resetLayout()` puts everything back. Reusing the same function as `F12` is the point: nothing has to remember what was there before, it's recomputed.
+
+**Postponed while the camera or mic is in use** (`hs.camera` / `hs.audiodevice`) — a window landing on top of a shared screen is a disaster. Retries every 2 minutes up to a cap, and the give-up path shows a **visible** alert, not a `debugPrint` nobody sees.
+
+### Tests
+
+`configs/hammerspoon-config/test/suite.sh` stubs `hs` wholesale and runs the real `init.lua` under `luajit` (Hammerspoon not required), the same trick as the lua-wm suite. Five scenarios: the 50/50 split, the expand/collapse cycle, the comms windows (including the postpone-in-a-call path), the laptop-only fallback, and that the grid schema still behaves for `mac-personal.lua`. The harness pins `os.date("*t").wday` — otherwise the weekday filter would pass Monday to Friday and fail on Saturday. If you touch `init.lua`, run the suite against the previous version too and check that it **fails** — scenario E is the exception: it must pass against both, because that's what proves `mac-personal.lua` didn't change.
 
 ## Linux window manager (lua-wm)
 
