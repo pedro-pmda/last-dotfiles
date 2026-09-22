@@ -476,16 +476,82 @@ local ACTIONS = {
     EMOJI = function() hs.eventtap.keyStroke({ "ctrl", "cmd" }, "space") end
 }
 
+-- macOS solo admite un dueño por atajo global: si otro proceso ya tiene registrado el
+-- mismo, RegisterEventHotKey contesta -9878 y hs.hotkey.bind devuelve nil. Fallaba en
+-- silencio, y por eso F11 (Work Mode) no hacía nada mientras ⇧F11 iba perfecto —la
+-- tecla ni siquiera aparecía en hs.hotkey.getHotkeys(). El repuesto es un eventtap:
+-- ve la pulsación en el tap de sesión, antes del despacho de atajos, así que no hay
+-- que averiguar quién es el dueño ni convencerle de que la suelte.
+local MODIFIER_ALIASES = {
+    cmd = "cmd", command = "cmd",
+    alt = "alt", option = "alt", opt = "alt",
+    shift = "shift",
+    ctrl = "ctrl", control = "ctrl"
+}
+local REAL_MODIFIERS = { "cmd", "alt", "shift", "ctrl" }
+
+local function normalizeMods(mods)
+    local set = {}
+    for _, m in ipairs(mods or {}) do
+        local name = tostring(m):lower()
+        set[MODIFIER_ALIASES[name] or name] = true
+    end
+    return set
+end
+
+-- `fn` se deja fuera de la comparación a propósito: en un portátil la fila F llega con
+-- fn puesto o no según cómo esté configurado el teclado, y eso no es parte del atajo.
+local function flagsMatch(flags, wanted)
+    for _, name in ipairs(REAL_MODIFIERS) do
+        if (flags[name] and true or false) ~= (wanted[name] or false) then return false end
+    end
+    return true
+end
+
+local fallbackKeys = {}
+
+local function bindKey(mapping, handler)
+    if hs.hotkey.bind(mapping.modifiers or {}, mapping.key, handler) then return end
+
+    local code = hs.keycodes.map[tostring(mapping.key):lower()]
+    if not code then
+        hs.alert.show("⚠️ Tecla desconocida: " .. tostring(mapping.key))
+        return
+    end
+    log("atajo " .. mapping.key .. " ocupado por otro proceso → va por eventtap")
+    table.insert(fallbackKeys, {
+        code = code, mods = normalizeMods(mapping.modifiers), fn = handler
+    })
+end
+
+-- El tap se guarda en una global aposta: si solo vive en un local del chunk, el
+-- recolector se lo lleva al rato y las teclas de repuesto dejan de responder sin avisar.
+local function startFallbackTap()
+    if #fallbackKeys == 0 then return end
+    _G.hotkeyFallbackTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+        local code, flags = event:getKeyCode(), event:getFlags()
+        for _, key in ipairs(fallbackKeys) do
+            if key.code == code and flagsMatch(flags, key.mods) then
+                key.fn()
+                return true    -- consumida: que no le llegue también al dueño del atajo
+            end
+        end
+        return false
+    end)
+    _G.hotkeyFallbackTap:start()
+end
+
 local function configureFunctionKeys()
     for _, mapping in ipairs(config.functionKeys) do
         local action = mapping.action
         local handler = ACTIONS[action]
         if handler then
-            hs.hotkey.bind(mapping.modifiers or {}, mapping.key, handler)
+            bindKey(mapping, handler)
         elseif action then
-            hs.hotkey.bind(mapping.modifiers or {}, mapping.key, function() onAppKey(action) end)
+            bindKey(mapping, function() onAppKey(action) end)
         end
     end
+    startFallbackTap()
 end
 
 --------------------------------------------------------------------------------
@@ -503,6 +569,7 @@ _G.wm = {
             expandida = expandedApp,
             delante   = front and front:name() or nil,
             reparte   = shouldTile(),
+            repuestos = #fallbackKeys,
             pantalla  = hs.screen.primaryScreen():frame().string
         })
     end,

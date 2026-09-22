@@ -49,6 +49,9 @@ echo
 echo "─── E. Esquema antiguo intacto (mac-personal) ───"
 run 3440 1440 1 "$PROFILES/mac-personal.lua" check-classic.lua
 echo
+echo "─── F. F11 con el atajo ocupado por otro proceso ───"
+run 3440 1440 1 "$PROFILES/mac-work.lua" check-fallback.lua
+echo
 if [[ $fails -eq 0 ]]; then
   echo "════ TODO OK ════"
 else

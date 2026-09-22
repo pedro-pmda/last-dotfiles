@@ -134,12 +134,43 @@ hs.audiodevice = {
     defaultInputDevice = function() return { inUse = function() return H.inCall end } end
 }
 
+-- Atajos que macOS rechaza porque otro proceso ya los tiene: bind devuelve nil, igual
+-- que el de verdad cuando RegisterEventHotKey falla con -9878. H.reject() los marca.
+H.rejected = {}
+function H.reject(combo) H.rejected[combo] = true end
+
+local function comboName(mods, key)
+    local prefix = table.concat(mods or {}, "+")
+    return (prefix ~= "" and prefix .. "+" or "") .. key
+end
+
 hs.hotkey = {
     bind = function(mods, key, fn)
-        local prefix = table.concat(mods or {}, "+")
-        H.bindings[(prefix ~= "" and prefix .. "+" or "") .. key] = fn
+        local combo = comboName(mods, key)
+        if H.rejected[combo] then return nil end
+        H.bindings[combo] = fn
+        return { combo = combo }
     end
 }
+
+hs.keycodes = {
+    map = {
+        f1 = 122, f2 = 120, f3 = 99,  f4 = 118, f5 = 96,  f6 = 97,
+        f7 = 98,  f8 = 100, f9 = 101, f10 = 109, f11 = 103, f12 = 111
+    }
+}
+
+-- Tap de teclado. Solo guarda el callback: H.press() le pasa un evento sintético
+-- cuando la combinación no tiene binding, que es justo lo que hace el repuesto.
+H.taps = {}
+hs.eventtap.event = { types = { keyDown = 10 } }
+function hs.eventtap.new(_, fn)
+    local tap = { fn = fn, running = false }
+    tap.start = function(self) self.running = true; return self end
+    tap.stop  = function(self) self.running = false; return self end
+    table.insert(H.taps, tap)
+    return tap
+end
 
 hs.timer = {}
 
@@ -208,8 +239,28 @@ end
 function H.press(combo, gapMs)
     H.clock = H.clock + ((gapMs or 5000) * 1000000)
     local fn = H.bindings[combo]
-    if not fn then error("tecla sin binding: " .. combo) end
-    fn()
+    if fn then fn(); return "hotkey" end
+    if H.tap(combo) then return "eventtap" end
+    error("tecla sin binding: " .. combo)
+end
+
+-- Entrega la pulsación a los taps activos. Devuelve true si alguno la consumió, que
+-- es lo que impide que le llegue también al proceso dueño del atajo.
+function H.tap(combo)
+    local parts = {}
+    for part in combo:gmatch("[^+]+") do table.insert(parts, part) end
+    local key = table.remove(parts)
+    local flags = {}
+    for _, m in ipairs(parts) do flags[m] = true end
+
+    local event = {
+        getKeyCode = function() return hs.keycodes.map[key:lower()] end,
+        getFlags   = function() return flags end
+    }
+    for _, tap in ipairs(H.taps) do
+        if tap.running and tap.fn(event) then return true end
+    end
+    return false
 end
 
 -- Doble toque: dos pulsaciones dentro de la ventana de 400 ms.

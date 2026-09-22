@@ -78,6 +78,8 @@ Linux has no official apt package, so the installer links the config and points 
 
 Since they're symlinks, editing a profile edits the live config — no re-install needed, just `Shift+F12`.
 
+**A hotkey another process already owns fails silently.** macOS allows one owner per global shortcut: `RegisterEventHotKey` answers `-9878` and `hs.hotkey.bind` returns `nil` without raising anything — the key just doesn't appear in `hs.hotkey.getHotkeys()`. That's what had plain `F11` (Work mode) dead while `⇧F11` worked; the owner was never identified (not the Dock's "Show Desktop", which is disabled in `com.apple.symbolichotkeys`). `configureFunctionKeys` now checks what `bind` returns and falls back to an `hs.eventtap` on `keyDown`, which sees the key in the session tap before shortcut dispatch and consumes it, so it works without knowing who holds the registration. The tap lives in `_G.hotkeyFallbackTap` because a chunk-local gets collected and the key would quietly stop responding. `fn` is deliberately left out of the modifier comparison — the F row carries it or not depending on the keyboard setting. `hs -c "wm.estado()"` reports how many keys went that route (`repuestos`).
+
 Apps outside `/Applications` need an entry in `appPaths` (only `mac-work.lua` has one today) — `hs.application.launchOrFocus` won't find them.
 
 `install-hammerspoon` guard-skips on Linux (`uname -s != Darwin`) — Hammerspoon itself is macOS-only.
@@ -111,7 +113,7 @@ Four times a day (09:30 / 11:30 / 13:30 / 15:30, weekdays), work mode only, `mac
 
 ### Tests
 
-`configs/hammerspoon-config/test/suite.sh` stubs `hs` wholesale and runs the real `init.lua` under `luajit` (Hammerspoon not required), the same trick as the lua-wm suite. Five scenarios: the 50/50 split, the expand/collapse cycle, the comms windows (including the postpone-in-a-call path), the laptop-only fallback, and that the grid schema still behaves for `mac-personal.lua`. The harness pins `os.date("*t").wday` — otherwise the weekday filter would pass Monday to Friday and fail on Saturday. If you touch `init.lua`, run the suite against the previous version too and check that it **fails** — scenario E is the exception: it must pass against both, because that's what proves `mac-personal.lua` didn't change.
+`configs/hammerspoon-config/test/suite.sh` stubs `hs` wholesale and runs the real `init.lua` under `luajit` (Hammerspoon not required), the same trick as the lua-wm suite. Six scenarios: the 50/50 split, the expand/collapse cycle, the comms windows (including the postpone-in-a-call path), the laptop-only fallback, that the grid schema still behaves for `mac-personal.lua`, and the eventtap fallback for a hotkey macOS refuses to register. The harness pins `os.date("*t").wday` — otherwise the weekday filter would pass Monday to Friday and fail on Saturday. If you touch `init.lua`, run the suite against the previous version too and check that it **fails** — scenario E is the exception: it must pass against both, because that's what proves `mac-personal.lua` didn't change.
 
 ## Linux window manager (lua-wm)
 
