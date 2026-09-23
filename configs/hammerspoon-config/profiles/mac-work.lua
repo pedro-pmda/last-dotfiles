@@ -16,8 +16,7 @@ return {
         { key = "F1",  modifiers = {},        action = "Google Chrome" },
         { key = "F1",  modifiers = {"shift"}, action = "Google Chrome Canary" },
         { key = "F2",  modifiers = {},        action = "Claude" },
-        { key = "F2",  modifiers = {"shift"}, action = "Chromium" },
-        -- F2 es la tecla de la IA y ya no caben más variantes con shift
+        -- ⇧F2 libre: Gemini ya no va en un Chromium aparte, es una pestaña de Chrome
         { key = "F2",  modifiers = {"alt"},   action = "LM Studio" },
         { key = "F3",  modifiers = {},        action = "Slack" },
         { key = "F3",  modifiers = {"shift"}, action = "Microsoft Teams" },
@@ -75,7 +74,6 @@ return {
         "Google Chrome",
         "Google Chrome Canary",
         "Claude",
-        "Chromium",
         "LM Studio",
         "Slack",
         "Microsoft Teams",
@@ -101,7 +99,7 @@ return {
         work = {
             launch = {
                 "IntelliJ IDEA", "Visual Studio Code", "Kiro", "DBeaver", "Obsidian",
-                "Ghostty", "Google Chrome", "Google Chrome Canary", "Claude", "Chromium",
+                "Ghostty", "Google Chrome", "Google Chrome Canary", "Claude",
                 "LM Studio", "Slack", "Microsoft Teams", "Microsoft 365 Copilot",
                 "Microsoft Outlook", "OpenLens", "WebPomodoro", "Finder"
             },
@@ -109,6 +107,7 @@ return {
 
             chrome = {
                 urls = {
+                    "https://gemini.google.com/app?hl=es-ES",
                     "https://zooplus.atlassian.net/jira/software/c/projects/DPF/boards/525",
                     "https://src.private.zooplus.net/dashboard",
                     "https://zpl.awsapps.com/start/#/?tab=accounts",
@@ -118,12 +117,6 @@ return {
                     "https://grafana.dnap.int.aws.zooplus.io/login",
                     "https://zooplus.atlassian.net/wiki/spaces/DAC/overview",
                     "https://app.mural.co/t/zooplus8237/home"
-                }
-            },
-
-            chromium = {
-                urls = {
-                    "https://gemini.google.com/app?hl=es-ES"
                 }
             },
 
@@ -153,25 +146,20 @@ return {
 
         kaizen = {
             launch = {
-                "Google Chrome", "Visual Studio Code", "Ghostty", "Chromium",
+                "Google Chrome", "Visual Studio Code", "Ghostty",
                 "Obsidian", "WebPomodoro", "LM Studio", "Google Chrome Canary"
             },
             foreground = { "Google Chrome", "Obsidian" },
 
             chrome = {
                 urls = {
+                    "https://gemini.google.com/app?hl=es-ES",
                     "https://mail.google.com/mail/u/0/#inbox",
                     "https://calendar.google.com/calendar/u/0/r",
                     "https://master.dev/dashboard/",
                     "https://anthropic.skilljar.com/",
                     "https://englishonline.britishcouncil.org/platform/nui/reactui/build/index.html?dd613#/login",
-                    "https://monkeytype.com/"
-                }
-            },
-
-            chromium = {
-                urls = {
-                    "https://gemini.google.com/app?hl=es-ES",
+                    "https://monkeytype.com/",
                     "https://claude.ai/new"
                 }
             }
