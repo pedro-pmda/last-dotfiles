@@ -447,8 +447,26 @@ local function cameraInUse()
     return (ok and result) == true
 end
 
+-- Un globo de 2 s en mitad de la pantalla no bastaba: si no estabas mirando, lo único que
+-- notabas era Slack movido, y lo que no salía (pospuesto, saltado) no dejaba ni eso. Cada
+-- aviso va ahora en tres canales: globo largo, sonido y notificación de macOS, que queda en
+-- el Centro de Notificaciones para comprobar después qué pasó.
+local function commsNotice(comms, title, text, opts)
+    opts = opts or {}
+    local message = text and (title .. "\n" .. text) or title
+    hs.alert.show(message, { textSize = 32 }, comms.alertSeconds or 8)
+    if opts.sound ~= false and comms.sound then
+        local sound = hs.sound.getByName(comms.sound)
+        if sound then sound:play() end
+    end
+    if opts.notify ~= false then
+        hs.notify.new({ title = title, informativeText = text or "", withdrawAfter = 0 }):send()
+    end
+end
+
 local function runCommsWindow(window, comms)
-    hs.alert.show("📬 Tiempo de Comunicación")
+    commsNotice(comms, "📬 Tiempo de Comunicación",
+                window.left .. " | " .. window.right .. " · " .. (comms.durationMinutes or 10) .. " min")
     log("ventana de comunicación " .. window.time .. ": " .. window.left .. " | " .. window.right)
 
     collapseExpanded(nil)
@@ -463,7 +481,8 @@ local function runCommsWindow(window, comms)
 
     local minutes = comms.durationMinutes or 10
     later(minutes * 60, function()
-        hs.alert.show("🔕 Fin del tiempo de comunicación")
+        -- Sin notificación: la de inicio ya deja constancia, y el final no se puede perder.
+        commsNotice(comms, "🔕 Fin del tiempo de comunicación", nil, { notify = false })
         resetLayout()
     end)
 end
@@ -492,6 +511,9 @@ local function scheduleCommsWindows()
         daily(window.time, "1d", function()
             if currentMode ~= "work" then
                 noteComms(window.time, "saltada: modo " .. tostring(currentMode))
+                -- Sin sonido: en Kaizen no se interrumpe, solo se deja dicho que no salió.
+                commsNotice(comms, "⏭️ Comunicación de las " .. window.time .. " saltada",
+                            "Estás en modo " .. tostring(currentMode), { sound = false })
                 return
             end
             if comms.weekdaysOnly ~= false and not isWeekday() then
@@ -507,11 +529,17 @@ local function scheduleCommsWindows()
                     if attempts <= maxPostpones then
                         noteComms(window.time, string.format(
                             "pospuesta, cámara en uso (intento %d/%d)", attempts, maxPostpones))
+                        -- Solo la primera vez y sin sonido: estás en una llamada, y repetirlo
+                        -- cada 2 min sería justo la interrupción que se quiere evitar.
+                        if attempts == 1 then
+                            commsNotice(comms, "⏳ Comunicación de las " .. window.time .. " pospuesta",
+                                        "Cámara en uso · sale al colgar", { sound = false })
+                        end
                         later((comms.postponeMinutes or 2) * 60, attempt)
                     else
                         -- Visible a propósito: si la ventana se cae, hay que enterarse.
-                        hs.alert.show("📭 Comunicación de las " .. window.time ..
-                                      " descartada (cámara en uso)")
+                        commsNotice(comms, "📭 Comunicación de las " .. window.time ..
+                                    " descartada (cámara en uso)", nil, { sound = false })
                         noteComms(window.time, "descartada: cámara en uso")
                     end
                     return

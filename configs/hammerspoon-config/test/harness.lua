@@ -14,6 +14,10 @@ local SCREEN_H = tonumber(os.getenv("SCREEN_H") or "1440")
 local SCREENS  = tonumber(os.getenv("SCREENS") or "1")
 
 H.alerts    = {}
+-- Lo que queda en el Centro de Notificaciones y los sonidos: el globo se va solo, y un
+-- aviso que no deja rastro es lo que hacía que las franjas pasaran sin enterarte.
+H.notifications = {}
+H.sounds        = {}
 -- Valores débiles a propósito: Hammerspoon no retiene los temporizadores, así que uno cuya
 -- única referencia sea esta tabla desaparece en cuanto pasa el recolector. H.collect()
 -- simula ese paso — es lo que dejaba muertas las franjas de comunicación y sus reintentos.
@@ -73,6 +77,12 @@ _G.hs = {}
 
 hs.console   = { clearConsole = function() end }
 hs.alert     = { show = function(m) table.insert(H.alerts, tostring(m)) end }
+hs.notify    = { new = function(attrs)
+    return { send = function() table.insert(H.notifications, attrs.title) end }
+end }
+hs.sound     = { getByName = function(name)
+    return { play = function() table.insert(H.sounds, name) end }
+end }
 hs.fs        = { attributes = function() return true end }
 hs.geometry  = { rect = function(x, y, w, h) return { x = x, y = y, w = w, h = h } end }
 hs.eventtap  = { keyStroke = function() end }
@@ -294,12 +304,15 @@ function H.doublePress(combo)
     H.press(combo, 100)
 end
 
-function H.alertsMatch(pattern)
-    for _, a in ipairs(H.alerts) do
+local function anyMatch(list, pattern)
+    for _, a in ipairs(list) do
         if a:find(pattern, 1, true) then return true end
     end
     return false
 end
+
+function H.alertsMatch(pattern)        return anyMatch(H.alerts, pattern) end
+function H.notificationsMatch(pattern) return anyMatch(H.notifications, pattern) end
 
 --------------------------------------------------------------------------------
 -- Carga y aserciones

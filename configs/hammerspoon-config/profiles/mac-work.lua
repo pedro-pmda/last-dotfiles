@@ -140,9 +140,14 @@ return {
                 durationMinutes = 10,
                 weekdaysOnly = true,
                 -- Una ventana saltando encima de una pantalla compartida es un
-                -- desastre: si hay cámara o micro en uso, se pospone y reintenta.
+                -- desastre: si la cámara está en uso, se pospone y reintenta. (El micro
+                -- no cuenta: el auricular USB lo deja "en uso" todo el día.)
                 postponeMinutes = 2,
-                maxPostpones = 12
+                maxPostpones = 12,
+                -- Cómo avisa: globo de alertSeconds, sonido del sistema (nombre de
+                -- /System/Library/Sounds, o nil para ninguno) y notificación de macOS.
+                alertSeconds = 8,
+                sound = "Glass"
             }
         },
 

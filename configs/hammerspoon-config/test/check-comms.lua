@@ -17,12 +17,16 @@ H.scheduled["09:30"]()
 H.flush()
 H.expectRect("Slack no se ha movido", "Slack", 1720, 0, 1720, 1440)
 H.check("y no ha avisado todavía", not H.alertsMatch("Tiempo de Comunicación"))
+H.check("pero deja dicho que se pospone", H.notificationsMatch("09:30 pospuesta"))
+H.check("sin sonar en mitad de la llamada", #H.sounds == 0, #H.sounds .. " sonidos")
 
 print("C3 · al colgar, la ventana pospuesta sale")
 H.cameraInUse = false
 H.fireLong(60)          -- el reintento de los 2 min
 H.flush()
 H.check("avisa con el aviso acordado", H.alertsMatch("📬 Tiempo de Comunicación"))
+H.check("queda en el Centro de Notificaciones", H.notificationsMatch("📬 Tiempo de Comunicación"))
+H.check("y suena", H.sounds[1] == "Glass", tostring(H.sounds[1]))
 H.expectRect("Slack a la izquierda", "Slack",             0, 0, 1720, 1440)
 H.expectRect("Outlook a la derecha", "Microsoft Outlook", 1720, 0, 1720, 1440)
 
@@ -48,6 +52,7 @@ H.scheduled["13:30"]()
 H.flush()
 H.check("los horarios de trabajo no entran en kaizen",
         not H.alertsMatch("Tiempo de Comunicación"))
+H.check("pero avisa de que se la salta", H.notificationsMatch("13:30 saltada"))
 
 -- El caso real que tumbaba el mecanismo: auricular USB conectado y Teams abierto dejan el
 -- micro "en uso" todo el día. Si eso cuenta como llamada, las cuatro franjas se descartan a
@@ -67,6 +72,7 @@ print("C8 · con la cámara en uso se agotan los reintentos y se dice por qué")
 H.fireLong(300)            -- cerrar los 10 min de la ventana anterior
 H.flush()
 H.alerts = {}
+H.notifications = {}
 H.cameraInUse = true
 H.scheduled["11:30"]()
 for _ = 1, 13 do           -- 12 posposiciones + la que se rinde
@@ -75,6 +81,11 @@ for _ = 1, 13 do           -- 12 posposiciones + la que se rinde
 end
 H.check("no ha irrumpido", not H.alertsMatch("📬 Tiempo de Comunicación"))
 H.check("avisa del descarte con el motivo", H.alertsMatch("descartada (cámara en uso)"))
+local pospuestas = 0
+for _, n in ipairs(H.notifications) do
+    if n:find("pospuesta", 1, true) then pospuestas = pospuestas + 1 end
+end
+H.check("avisa de la posposición una vez, no cada 2 min", pospuestas == 1, pospuestas .. " avisos")
 H.expectRect("Slack sigue en su lado", "Slack", 1720, 0, 1720, 1440)
 
 -- Lo que de verdad tenía muerto el mecanismo: Hammerspoon no retiene los temporizadores, y
