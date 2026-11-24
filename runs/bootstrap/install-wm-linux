@@ -131,6 +131,11 @@ Environment=LUA_CPATH=$LUA_CPATH_DIRS;;
 ExecStart=$LUA_BIN $CONFIG_DEST/init.lua
 Restart=on-failure
 RestartSec=3s
+# Las apps que lanza lua-wm (teclas, modo Kaizen, --new-tab) nacen dentro del
+# cgroup del servicio, y con el KillMode por defecto (control-group) cada
+# restart —o sea, cada Shift+F12— las mataba con él: VS Code, Chromium y
+# calibre se cerraban sin avisar. Solo hay que parar el daemon, no sus hijos.
+KillMode=process
 
 [Install]
 WantedBy=default.target

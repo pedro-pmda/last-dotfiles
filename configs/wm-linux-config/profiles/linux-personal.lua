@@ -1,5 +1,5 @@
 -- Linux personal profile for lua-wm
--- Mismo formato que mac-personal.lua — tabla Lua pura, sin código imperativo.
+-- Mismo esquema de lados que mac-personal.lua — tabla Lua pura, sin código imperativo.
 --
 -- IMPORTANTE: Los nombres de las apps deben coincidir exactamente con el campo
 -- "Name=" de su archivo .desktop. Para encontrar el nombre correcto:
@@ -15,13 +15,18 @@ return {
     appLaunchDelay = 5,
     debugMode = false,
 
-    -- Mismos bloques que mac-work.lua (F1-F4 comunicar · F5-F8 construir ·
-    -- F9-F12 personal/meta), nivelados a lo que hay instalado en este equipo.
-    -- Shift+F1 y Shift+F2 siguen el mismo patrón que mac-work.lua (Canary y
-    -- Chromium junto a Chrome/Claude), pero con los nombres reales que Mint
-    -- les da a sus .desktop — no coinciden con los de macOS.
-    -- Este perfil no arranca nada de golpe al pulsar teclas de app, solo
-    -- coloca al vuelo lo que ya está abierto o lo que lanzas tecla a tecla.
+    -- Por debajo de este ancho en la pantalla principal no se reparten ventanas:
+    -- todo va a pantalla completa.
+    minWidthForTiling = 2000,
+
+    -- Dos pulsaciones de la misma tecla dentro de esta ventana cuentan como doble toque.
+    doubleTapMs = 400,
+
+    -- Mismos bloques y mismo vocabulario que los perfiles de Mac (F1-F4 comunicar ·
+    -- F5-F8 construir · F9-F12 personal/meta): la memoria muscular no debería depender
+    -- de en qué máquina estés. Por eso VS Code va en F6 como en mac-personal, y F5
+    -- (IntelliJ allí) se queda libre. Los nombres son los que Mint les da a sus
+    -- .desktop, que no coinciden con los de macOS.
     functionKeys = {
         -- Comunicar
         { key = "F1",  modifiers = {},        action = "Google Chrome" },
@@ -37,14 +42,15 @@ return {
         { key = "F4",  modifiers = {"shift"}, action = "Kodi" },
 
         -- Construir
-        { key = "F5",  modifiers = {},        action = "Visual Studio Code" },
-        -- Name= es "calibre" en minúscula, tal cual lo trae su .desktop.
-        { key = "F6",  modifiers = {},        action = "calibre" },
+        { key = "F6",  modifiers = {},        action = "Visual Studio Code" },
         { key = "F7",  modifiers = {},        action = "Freelens" },
         { key = "F8",  modifiers = {},        action = "Terminal" },
 
         -- Personal y meta
         { key = "F9",  modifiers = {},        action = "Obsidian" },
+        -- calibre es lectura: va junto a las notas, en el hueco que en mac-personal
+        -- ocupa Mural. Name= es "calibre" en minúscula, tal cual lo trae su .desktop.
+        { key = "F9",  modifiers = {"shift"}, action = "calibre" },
         { key = "F10", modifiers = {},        action = "Files" },
         { key = "F10", modifiers = {"shift"}, action = "EMOJI" },
         { key = "F11", modifiers = {"shift"}, action = "KAIZEN_MODE" },
@@ -52,41 +58,67 @@ return {
         { key = "F12", modifiers = {"shift"}, action = "RELOAD_WM" },
     },
 
-    kaizenChromeConfig = {
-        urls = {
-            "https://mail.google.com/mail/u/0/#inbox",
-            "https://calendar.google.com/calendar/u/0/r",
-        }
+    ---------------------------------------------------------------------------
+    -- El mapa de lados
+    ---------------------------------------------------------------------------
+    -- Todo al 50%. El lado decide QUÉ SE VE A LA VEZ, porque dos apps del mismo lado
+    -- se tapan siempre. Antes Obsidian y Chrome iban los dos a la izquierda y la
+    -- pareja de Kaizen —notas y navegador— no se podía ver entera.
+
+    -- Izquierda: donde escribes o lees. Son alternativas de verdad entre sí.
+    leftApps = {
+        "Visual Studio Code",
+        "Obsidian",
+        "calibre",
     },
 
-    kaizenChromiumConfig = {
-        urls = {
-            "https://gemini.google.com/app?hl=es-ES",
-            "https://claude.ai/new",
-        }
+    -- Derecha: lo que acompaña.
+    rightApps = {
+        "Terminal",
+        "Google Chrome",
+        "Google Chrome (unstable)",
+        "Chromium Web Browser",
+        "Claude",
+        "Ferdium",
+        "Freelens",
+        "Files",
+        "Spotify",
+        "Kodi",
     },
 
-    -- Pantalla única 2560x1440: dos columnas al 50% ("2/4" en el esquema de
-    -- fracciones de getSizeFraction), no el reparto 1/4·2/4·1/4 del
-    -- ultrawide de mac-work.
-    -- IA (Claude, Chromium dedicado a Gemini) y CLI (Terminal) van siempre a
-    -- la derecha; el resto (notas, navegación normal, editor) a la izquierda.
-    kaizenAppLayout = {
-        { name = "Obsidian",           position = "left",  width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Google Chrome",      position = "left",  width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Visual Studio Code", position = "left",  width = "2/4", vertical = "top", height = "3/3" },
+    -- El doble toque expande al centro a 2/3. Estas van a pantalla completa en su
+    -- lugar: antes vivían siempre así, y una prueba de navegador o un vídeo no
+    -- caben en dos tercios.
+    expandFull = { "Google Chrome (unstable)", "Spotify", "Kodi" },
 
-        { name = "Claude",             position = "right", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Chromium Web Browser", position = "right", width = "2/4", vertical = "top", height = "3/3" },
-        { name = "Terminal",           position = "right", width = "2/4", vertical = "top", height = "3/3" },
+    ---------------------------------------------------------------------------
+    -- Modos
+    ---------------------------------------------------------------------------
+    -- Solo cambian qué se lanza y qué pestañas se abren. Los lados son los mismos,
+    -- así que una app que Kaizen no lance se coloca igual al abrirla a mano.
+    -- Linux no tiene modo work: es la máquina personal.
+    modes = {
+        kaizen = {
+            launch = {
+                "Obsidian", "Google Chrome", "Visual Studio Code",
+                "Claude", "Chromium Web Browser", "Terminal",
+                "Spotify", "Google Chrome (unstable)", "calibre",
+            },
+            foreground = { "Google Chrome", "Obsidian" },
 
-        -- Escape a pantalla completa: no forma parte de la rejilla de columnas
-        { name = "Spotify",            position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "Google Chrome (unstable)", position = "center", width = "4/4", vertical = "center", height = "4/4" },
-        { name = "calibre",            position = "center", width = "4/4", vertical = "center", height = "4/4" },
-    },
+            chrome = {
+                urls = {
+                    "https://mail.google.com/mail/u/0/#inbox",
+                    "https://calendar.google.com/calendar/u/0/r",
+                }
+            },
 
-    foregroundApps = {
-        kaizen = { "Google Chrome", "Obsidian" },
+            chromium = {
+                urls = {
+                    "https://gemini.google.com/app?hl=es-ES",
+                    "https://claude.ai/new",
+                }
+            },
+        },
     },
 }

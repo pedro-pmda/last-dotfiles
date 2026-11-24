@@ -340,7 +340,7 @@ The Hammerspoon equivalent for Linux: `init.lua` runs as a `lua5.3` daemon (via 
 ```
 
 Reload after editing a profile with `systemctl --user restart lua-wm` (bound the same way
-`Shift+F12` reloads Hammerspoon on macOS). Logs: `journalctl --user -u lua-wm -f`. Currently only
+`Shift+F12` reloads Hammerspoon on macOS). Logs: `journalctl --user -u lua-wm -f`. The service runs with `KillMode=process`, so a restart stops only the daemon and not the apps it launched — before that, every reload closed them. Currently only
 `profiles/linux-personal.lua` exists (no `linux-work.lua` counterpart yet).
 
 The `functionKeys` schema is identical to Hammerspoon's, but the action vocabulary is
@@ -348,6 +348,16 @@ smaller: `KAIZEN_MODE`, `RESET_LAYOUT`, `EMOJI`, plus `RELOAD_WM` as a synonym o
 `RELOAD_HAMMERSPOON`. No `WORK_MODE` on Linux — `linux-personal.lua` is the only profile
 so far, so there's nothing to switch between. Geometry — the fraction table and the
 position table — is the same code.
+
+`linux-personal.lua` uses the same **sides schema** as both Mac profiles: `leftApps` (where you
+write or read: VS Code, Obsidian, calibre) and `rightApps` (everything that accompanies it), all
+at 50%, and `modes.kaizen` says only what Kaizen launches and which tabs it opens. A **double
+tap** on an app's key expands it to 2/3 centred, another double tap sends it back to its half,
+and pressing a different app collapses it on its own; `expandFull` apps (Chrome unstable,
+Spotify, Kodi) expand to the full screen instead. Keys follow the Mac vocabulary where the app
+exists on both machines — VS Code is `F6`, as on `mac-personal`. If another program already owns
+one of the shortcuts, lua-wm now says so with a notification instead of leaving the key silently
+dead. The old grid schema (`kaizenAppLayout`) still works; no profile uses it.
 
 **The app *names* are not portable, though**, and can't be: on macOS they're `.app` names resolved
 through `hs.application`, on Linux they're the `Name=` field of a `.desktop` file matched against
