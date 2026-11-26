@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: ☕ SDKMAN + Java (Temurin 21), sbt y Scala de zoobrain
+
+set -euo pipefail
+
+# Versiones de zoobrain (~/zooplus/zoobrain): scalaVersion en build.sbt y
+# sbt.version en project/build.properties. Java no está declarado en el proyecto;
+# 21 (Temurin, sufijo -tem en SDKMAN) es una decisión nuestra, no del repo.
+JAVA_MAJOR="21"
+JAVA_VENDOR_SUFFIX="tem"
+SBT_VERSION="1.12.13"
+SCALA_VERSION="2.13.16"
+
+SDKMAN_DIR="${SDKMAN_DIR:-$HOME/.sdkman}"
+export SDKMAN_DIR
+
+# SDKMAN necesita curl, zip y unzip. macOS ya los trae; en Linux van por apt.sh.
+missing=""
+for bin in curl zip unzip; do
+  command -v "$bin" >/dev/null 2>&1 || missing="$missing $bin"
+done
+if [[ -n "$missing" ]]; then
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/apt.sh"
+    # shellcheck disable=SC2086 # la lista va separada por espacios a propósito
+    apt_install $missing
+  else
+    echo "❌ Faltan:$missing (SDKMAN los necesita)."
+    exit 1
+  fi
+fi
+
+if [[ -d "$SDKMAN_DIR" ]]; then
+  echo "✅ SDKMAN ya está instalado."
+else
+  echo "☕ Instalando SDKMAN..."
+  # rcupdate=false: el instalador no toca ~/.zshrc. Es un symlink al repo, así que
+  # lo que escribiera ahí acabaría versionado. configs/zsh-config/.zshrc ya carga
+  # SDKMAN por su cuenta.
+  curl -fsSL "https://get.sdkman.io?rcupdate=false" | bash
+fi
+
+# sdkman-init.sh usa variables sin definir y devuelve códigos no-cero con normalidad,
+# así que se relaja -u (y -e) mientras se carga y se usa.
+set +u
+# shellcheck disable=SC1091
+source "$SDKMAN_DIR/bin/sdkman-init.sh"
+# Sin esto `sdk install` pregunta si fijar la versión como default.
+sdkman_auto_answer=true
+set -u
+
+# Directorio de una versión ya instalada: más fiable que parsear `sdk current`.
+installed() { [[ -d "$SDKMAN_DIR/candidates/$1/$2" ]]; }
+
+install_candidate() {
+  local candidate="$1" version="$2"
+  if installed "$candidate" "$version"; then
+    echo "✅ $candidate $version ya está instalado."
+    return 0
+  fi
+  echo "📦 Instalando $candidate $version..."
+  set +u
+  sdk install "$candidate" "$version" </dev/null
+  set -u
+}
+
+# Java: el identificador exacto (21.0.x-tem) cambia con cada parche y SDKMAN retira
+# los antiguos, así que se fija la mayor y se resuelve el último parche disponible.
+existing_java=""
+for dir in "$SDKMAN_DIR"/candidates/java/"$JAVA_MAJOR".*-"$JAVA_VENDOR_SUFFIX"; do
+  [[ -d "$dir" ]] && existing_java="$(basename "$dir")"
+done
+
+if [[ -n "$existing_java" ]]; then
+  echo "✅ java $existing_java ya está instalado."
+else
+  echo "🔎 Buscando el último Java $JAVA_MAJOR ($JAVA_VENDOR_SUFFIX) en SDKMAN..."
+  set +u
+  java_id="$(sdk list java </dev/null | grep -o -E "${JAVA_MAJOR}\.[0-9.]+-${JAVA_VENDOR_SUFFIX}" | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u | tail -1)" || true
+  set -u
+  if [[ -z "$java_id" ]]; then
+    echo "❌ SDKMAN no ofrece ningún Java $JAVA_MAJOR-$JAVA_VENDOR_SUFFIX."
+    exit 1
+  fi
+  install_candidate java "$java_id"
+fi
+
+install_candidate sbt "$SBT_VERSION"
+install_candidate scala "$SCALA_VERSION"
+
+echo "✅ SDKMAN con Java $JAVA_MAJOR, sbt $SBT_VERSION y Scala $SCALA_VERSION listos."
+echo "   Abre una shell nueva (o: source ~/.zshrc) para tenerlos en el PATH."
