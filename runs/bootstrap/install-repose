@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# run-os: darwin
+# run-desc: 😌 Repose — recordatorios de descanso (barra de menú, sin Dock)
+
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "❌ Repose es solo para macOS."
+  exit 1
+fi
+
+if [[ -d "/Applications/Repose.app" ]]; then
+  echo "✅ Repose ya está instalado."
+  exit 0
+fi
+
+GH_REPO="fikrikarim/repose"
+url="https://github.com/$GH_REPO/releases/latest/download/Repose.dmg"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+echo "⬇️  Descargando Repose..."
+curl -fsSL "$url" -o "$tmp/Repose.dmg"
+
+echo "📦 Montando el .dmg..."
+hdiutil attach "$tmp/Repose.dmg" -nobrowse -quiet -mountpoint "$tmp/mnt"
+cp -R "$tmp/mnt/Repose.app" /Applications/
+hdiutil detach "$tmp/mnt" -quiet
+
+echo "✅ Repose instalado"

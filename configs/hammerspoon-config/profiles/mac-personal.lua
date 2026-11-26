@@ -92,7 +92,7 @@ return {
             launch = {
                 "IntelliJ IDEA", "Visual Studio Code", "DBeaver", "Obsidian", "Mural",
                 "Ghostty", "Google Chrome", "Google Chrome Canary", "Chromium",
-                "Slack", "Microsoft Teams", "Microsoft Outlook", "OpenLens"
+                "Slack", "Microsoft Teams", "Microsoft Outlook", "OpenLens", "Repose"
             },
             foreground = { "Google Chrome", "IntelliJ IDEA" },
 
@@ -121,7 +121,7 @@ return {
         kaizen = {
             launch = {
                 "Google Chrome", "Google Chrome Canary", "Chromium",
-                "Visual Studio Code", "Obsidian", "Ghostty"
+                "Visual Studio Code", "Obsidian", "Ghostty", "Repose"
             },
             foreground = { "Google Chrome", "Obsidian" },
 
