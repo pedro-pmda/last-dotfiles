@@ -27,6 +27,8 @@ BOOTSTRAP_ORDER=(
   install-chromium
   install-chrome-canary
   install-freelens
+  install-repose
+  install-rectangle
   install-hammerspoon
   install-wm-linux
 )

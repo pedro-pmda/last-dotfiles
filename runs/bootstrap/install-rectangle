@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# run-os: darwin
+# run-desc: 🪟 Rectangle — atajos y snap de ventanas (macOS)
+
+set -euo pipefail
+
+# Guard: Rectangle solo existe para macOS (en Linux ese papel lo hace lua-wm)
+[[ "$(uname -s)" == "Darwin" ]] || { echo "⏭️  Solo macOS — nada que hacer en Linux"; exit 0; }
+
+if [[ -d "/Applications/Rectangle.app" ]]; then
+  echo "✅ Rectangle ya está instalado."
+  exit 0
+fi
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+ensure_brew
+echo "📦 Instalando Rectangle con Homebrew..."
+brew install --cask rectangle
+
+echo "✅ Rectangle instalado"

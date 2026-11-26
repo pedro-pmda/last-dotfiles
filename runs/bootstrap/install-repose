@@ -4,10 +4,8 @@
 
 set -euo pipefail
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "❌ Repose es solo para macOS."
-  exit 1
-fi
+# Guard: Repose solo existe para macOS (no hay equivalente oficial en Linux)
+[[ "$(uname -s)" == "Darwin" ]] || { echo "⏭️  Solo macOS — nada que hacer en Linux"; exit 0; }
 
 if [[ -d "/Applications/Repose.app" ]]; then
   echo "✅ Repose ya está instalado."

@@ -8,7 +8,7 @@ Personal dotfiles / dev-environment bootstrap for macOS **and Linux**. Plain Bas
 |---|---|
 | `run` | Entrypoint. No filter → `runs/bootstrap/` in `BOOTSTRAP_ORDER`. With a filter → substring match over all of `runs/`. |
 | `runs/lib/` | Sourced helpers, **not executable** so `run` skips them: `brew-env.sh` (`ensure_brew`), `apt.sh` (`require_apt`, `apt_install`) |
-| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, kubernetes, aws-cli, git-config, ghostty, cli-tools, chromium, chrome-canary, freelens, calibre, obsidian, spotify, hammerspoon (macOS), wm-linux (Linux), gnome-terminal (Linux), nas-mount (Linux). One installer per app, each handling both OSes unless noted otherwise. |
+| `runs/bootstrap/` | Installers: homebrew, zsh, nvm, nvim, tmux, docker, kubernetes, aws-cli, git-config, ghostty, cli-tools, chromium, chrome-canary, freelens, repose (macOS), rectangle (macOS), calibre, obsidian, spotify, hammerspoon (macOS), wm-linux (Linux), gnome-terminal (Linux), nas-mount (Linux). One installer per app, each handling both OSes unless noted otherwise. |
 | `runs/infra/` | `install-k3s` (k3d cluster), `switch-cluster` (kubectl context) |
 | `runs/access/` | `repokeys` — loads every private key in `~/.ssh` into an existing ssh-agent |
 | `runs/utils/` | `ready-tmux`, `tmux-sessionizer`, `install-git-hooks` |
