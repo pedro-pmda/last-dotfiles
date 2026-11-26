@@ -30,6 +30,7 @@ BOOTSTRAP_ORDER=(
   install-freelens
   install-repose
   install-rectangle
+  install-safeeyes
   install-hammerspoon
   install-wm-linux
 )

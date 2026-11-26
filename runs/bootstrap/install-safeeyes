@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# run-os: linux
+# run-desc: 👀 Safe Eyes — recordatorios de descanso (el Repose de Linux, vía Flatpak)
+
+set -euo pipefail
+
+# Guard: en macOS ese papel lo hace Repose (install-repose). Safe Eyes es solo Linux.
+[[ "$(uname -s)" == "Linux" ]] || { echo "⏭️  Solo Linux — en macOS está install-repose"; exit 0; }
+
+APP_ID="io.github.slgobinath.SafeEyes"
+
+if flatpak info "$APP_ID" &>/dev/null; then
+  echo "✅ Safe Eyes ya está instalado (Flatpak)."
+  exit 0
+fi
+
+command -v flatpak >/dev/null 2>&1 || { echo "❌ flatpak no está instalado."; exit 1; }
+
+# Flathub y no apt: Mint 22 (Noble) trae la 2.1.5 y Flathub va por la 3.x.
+echo "📦 Añadiendo el remoto Flathub (si no existe)..."
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+echo "📦 Instalando Safe Eyes vía Flatpak..."
+flatpak install -y flathub "$APP_ID"
+
+echo "✅ Safe Eyes instalado. lua-wm lo lanza en el modo Kaizen."
+echo "   Ajustes recomendados (icono de la bandeja → Settings):"
+echo "   • Smart Pause activado: pausa si no tocas teclado ni ratón."
+echo "   • Do Not Disturb: añade las ventanas de Teams/Zoom para que no te corte una llamada."

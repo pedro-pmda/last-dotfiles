@@ -103,6 +103,9 @@ return {
                 "Obsidian", "Google Chrome", "Visual Studio Code",
                 "Claude", "Chromium Web Browser", "Terminal",
                 "Spotify", "Google Chrome (unstable)", "calibre",
+                -- Recordatorios de descanso, el Repose de Linux. Vive en la bandeja y
+                -- no tiene ventana que colocar, por eso no está en ningún lado.
+                "Safe Eyes",
             },
             foreground = { "Google Chrome", "Obsidian" },
 

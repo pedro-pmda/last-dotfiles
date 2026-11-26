@@ -90,6 +90,7 @@ local DESKTOP_APPS = {
   { name = "Ghostty",                cls = "ghostty" },
   { name = "Terminal",               cls = "gnome-terminal-server" },
   { name = "Freelens",               cls = "freelens" },
+  { name = "Safe Eyes",              cls = "safeeyes" },
   { name = "Claude",                 cls = "claude" },
   { name = "Ferdium",                cls = "ferdium" },
   { name = "Spotify",                cls = "spotify" },
