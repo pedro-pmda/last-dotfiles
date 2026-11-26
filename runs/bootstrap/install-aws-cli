@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# run-os: any
+# run-desc: ☁️  AWS CLI v2 (aws) — necesario para los clusters EKS de kprod/kdev
+
+set -euo pipefail
+
+# No lo instalaba nadie, y el .zshrc ya dependía de él sin decirlo: los alias kprod y
+# kdev apuntan a clusters EKS, y el kubeconfig de EKS se autentica ejecutando
+# `aws eks get-token` en cada llamada de kubectl. Sin `aws`, el cambio de contexto
+# funciona y la primera consulta falla.
+#
+# La formula `awscli` es la v2 y existe igual en macOS y en Linuxbrew, así que no
+# hace falta ramificar por sistema operativo.
+#
+# ~/.aws no se versiona: ahí viven credenciales y la caché de SSO, y además cambia
+# por máquina. El login es interactivo, así que tampoco se lanza desde aquí.
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/brew-env.sh"
+
+# Se comprueba con `command -v`, no con `brew list`: si ya lo tienes con el .pkg
+# oficial de AWS, se respeta en vez de instalar una segunda copia.
+if command -v aws &>/dev/null; then
+  echo "✅ aws ya está instalado ($(command -v aws)) — $(aws --version 2>&1)"
+else
+  ensure_brew
+  echo "📦 Instalando con Homebrew: awscli"
+  brew install awscli
+  echo "✅ $(aws --version 2>&1)"
+fi
+
+if [[ ! -f "$HOME/.aws/config" ]]; then
+  echo "ℹ️  Aún no hay ~/.aws/config. Para configurar el acceso por SSO:"
+  echo "   aws configure sso"
+  echo "   y luego, cuando caduque la sesión: aws sso login --profile <perfil>"
+fi

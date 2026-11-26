@@ -91,14 +91,15 @@ whatever order the filesystem happens to return:
 5. `install-tmux`
 6. `install-docker`
 7. `install-kubernetes`
-8. `install-git-config`
-9. `install-ghostty`
-10. `install-cli-tools`
-11. `install-chromium`
-12. `install-chrome-canary`
-13. `install-freelens`
-14. `install-hammerspoon` (macOS; guard-skips on Linux)
-15. `install-wm-linux` (Linux; guard-skips on macOS)
+8. `install-aws-cli`
+9. `install-git-config`
+10. `install-ghostty`
+11. `install-cli-tools`
+12. `install-chromium`
+13. `install-chrome-canary`
+14. `install-freelens`
+15. `install-hammerspoon` (macOS; guard-skips on Linux)
+16. `install-wm-linux` (Linux; guard-skips on macOS)
 
 `runs/infra/`, `runs/access/` and `runs/utils/` need an explicit filter, because they're imperative
 or interactive rather than idempotent installers: `install-k3s` creates a cluster, `tmux-sessionizer`
@@ -148,6 +149,7 @@ Sourced by the installers, never executed on its own.
 | `install-nas-mount` | Linux only. Mounts the NAS books share over **CIFS** (`/mnt/bibliotecas`, `x-systemd.automount`) instead of the GVFS mount Nautilus uses — GVFS doesn't implement `flock` correctly, which makes Calibre think its library database is corrupted. | Not in `BOOTSTRAP_ORDER` — run it explicitly with `./run nas-mount`. Prompts for SMB credentials interactively on first run and writes them to `~/.smbcredentials` (chmod 600), **never into the repo**. `x-systemd.automount` means the share mounts itself the first time something (e.g. Calibre) touches the mount point — nothing needs to run it eagerly at login. |
 | `install-cli-tools` | Installs `k9s`, `htop`, `glow`, `bat`, `lsd`, `vivid`, `lazygit`, `direnv` and `tree-sitter-cli` with Homebrew if missing, then **symlinks** the configs that exist in the repo (`k9s`, `htop`, `glow`, `bat`, `lsd`). | Checks with `command -v`, so an apt-installed or hand-compiled copy is respected instead of installing a second one. Entries are `formula:binary:config-dir`, because the binary isn't always named after the formula (`tree-sitter-cli` → `tree-sitter`) and not every tool has a versioned config — `vivid` is one of these, it's invoked from `.zshrc`, not configured through a file. |
 | `install-kubernetes` | `kubectl`, `kubectx`/`kubens` and `helm`. | Nothing installed `kubectl` before, even though `.zshrc` has five aliases using it and `kube_ps1` in the prompt. `kubectx` moved here from `install-zsh`, where it had ended up only because its aliases live in the shell config. |
+| `install-aws-cli` | AWS CLI v2 (`brew install awscli`, same formula on macOS and Linuxbrew). | `kprod`/`kdev` point at EKS clusters, and an EKS kubeconfig authenticates by running `aws eks get-token` on every `kubectl` call — without `aws` the context switch works and the first query fails. `~/.aws` is **not** versioned (credentials, SSO cache); if there's no `~/.aws/config` yet the script tells you to run `aws configure sso`, it doesn't run the interactive login for you. |
 | `install-chromium` | Chromium: cask on macOS, apt on Linux (tries `chromium`, then `chromium-browser`). | The window profiles bind a key to it and open a tab set in it, but nothing installed it. On Linux, also fixes `chromium-browser.desktop`'s `StartupWMClass` (Debian/Ubuntu ship it as `chromium`, but the window actually reports `Chromium-browser`) via the same user-level `.desktop` override pattern as `install-calibre` — otherwise `lua-wm` can't refocus it. |
 | `install-chrome-canary` | Google Chrome Canary via cask on macOS. | Canary doesn't exist on Linux; there the equivalent channel is `google-chrome-unstable`, which needs Google's apt repo. The script prints the commands rather than adding a third-party repo behind your back. |
 | `install-freelens` | Freelens (the maintained successor to OpenLens): cask on macOS, official `.deb` from GitHub releases on Linux (arch-matched, sha256 verified before `sudo apt install`). | On macOS it needs your password to copy into `/Applications`. |

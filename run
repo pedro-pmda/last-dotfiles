@@ -20,6 +20,7 @@ BOOTSTRAP_ORDER=(
   install-tmux
   install-docker
   install-kubernetes
+  install-aws-cli
   install-git-config
   install-ghostty
   install-cli-tools
