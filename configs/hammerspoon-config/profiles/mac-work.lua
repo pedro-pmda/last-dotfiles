@@ -170,7 +170,10 @@ return {
     -- Apps installed outside the standard /Applications folders need an explicit path
     -- so hs.application.open() can find them (launchOrFocus only searches standard locations).
     appPaths = {
-        ["WebPomodoro"] = "/Volumes/SecondBrain/Applications/WebPomodoro.app"
+        ["WebPomodoro"] = "/Volumes/SecondBrain/Applications/WebPomodoro.app",
+        -- La app se instala como "Copilot.app": con el nombre "Microsoft 365 Copilot"
+        -- launchOrFocus no encuentra nada que lanzar.
+        ["Microsoft 365 Copilot"] = "/Applications/Copilot.app"
     },
 
     -- Apps que corren con un nombre distinto al de su .app, o cuyo nombre es prefijo de
@@ -179,6 +182,7 @@ return {
     appIds = {
         ["Visual Studio Code"] = "com.microsoft.VSCode",
         ["Google Chrome"]      = "com.google.Chrome",
-        ["Google Chrome Canary"] = "com.google.Chrome.canary"
+        ["Google Chrome Canary"] = "com.google.Chrome.canary",
+        ["Microsoft 365 Copilot"] = "com.microsoft.m365copilot"
     }
 }
