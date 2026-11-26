@@ -108,4 +108,41 @@ for _, t in ipairs({ "09:30", "11:30", "13:30", "15:30" }) do
 end
 H.check("las cuatro franjas siguen programadas tras el GC", vivas == 4, vivas .. "/4")
 
+-- Lo que tumbó las franjas una segunda vez: el reloj de los temporizadores se para con el
+-- Mac en reposo, así que tras una noche dormido los `doAt` de ayer disparaban horas tarde.
+-- Al despertar tienen que rehacerse, y lo que cayó durante el reposo no puede perderse
+-- en silencio.
+print("C10 · al despertar se rearman las cuatro franjas")
+H.fireLong(300)            -- cerrar los 10 min de la ventana de C9
+H.flush()
+local before = H.scheduledTimers["09:30"]
+H.sleepBetween("12:00", "12:10")
+H.check("el temporizador viejo queda parado", before.stopped == true)
+H.check("y hay uno nuevo en su lugar",
+        H.scheduledTimers["09:30"] ~= nil and H.scheduledTimers["09:30"] ~= before)
+H.collect()
+vivas = 0
+for _, t in ipairs({ "09:30", "11:30", "13:30", "15:30" }) do
+    if H.scheduledTimers[t] ~= nil and not H.scheduledTimers[t].stopped then vivas = vivas + 1 end
+end
+H.check("las cuatro rearmadas sobreviven al GC", vivas == 4, vivas .. "/4")
+
+print("C11 · una franja que cae en un reposo corto sale al despertar")
+H.alerts, H.notifications = {}, {}
+H.sleepBetween("13:20", "13:35")   -- la de las 13:30 hace 5 min
+H.flush()
+H.check("sale la de las 13:30", H.alertsMatch("📬 Tiempo de Comunicación"))
+H.expectRect("Slack a la izquierda", "Slack", 0, 0, 1720, 1440)
+H.fireLong(300)
+H.flush()
+
+print("C12 · si el reposo fue largo, no irrumpe pero avisa de que se perdió")
+H.alerts, H.notifications = {}, {}
+H.sleepBetween("15:00", "17:00")   -- la de las 15:30 hace hora y media
+H.flush()
+H.check("no sale a destiempo", not H.alertsMatch("📬 Tiempo de Comunicación"))
+H.check("avisa de la perdida", H.notificationsMatch("15:30 perdida"))
+H.check("y solo de la que cayó en el reposo", not H.notificationsMatch("13:30"))
+H.now = nil
+
 H.done()

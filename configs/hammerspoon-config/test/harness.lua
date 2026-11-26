@@ -204,10 +204,44 @@ end
 -- H.scheduled guarda la función (es como los tests disparan una franja a mano) y
 -- H.scheduledTimers el objeto temporizador, que es lo que el recolector puede llevarse.
 function hs.timer.doAt(time, _, fn)
-    local t = { time = time, fn = fn, stop = function() end }
+    local t = { time = time, fn = fn, stopped = false }
+    t.stop = function(self) self.stopped = true end
     H.scheduled[time] = fn
     H.scheduledTimers[time] = t
     return t
+end
+
+-- Reposo y despertar. El reloj de los temporizadores se para mientras el Mac duerme, así
+-- que lo que se comprueba es que al despertar se rearmen (temporizadores nuevos, los
+-- viejos parados) y que lo que cayó durante el reposo se lance o se dé por perdido.
+hs.caffeinate = { watcher = { systemDidWake = 0, systemWillSleep = 1 } }
+function hs.caffeinate.watcher.new(fn)
+    H.powerEvent = fn
+    return { start = function(self) return self end, stop = function(self) return self end }
+end
+
+-- Hora de pared fija para las pruebas de reposo: H.now (epoch) o la real si es nil.
+H.now = nil
+local realTime = os.time
+os.time = function(t)
+    if t then return realTime(t) end
+    return H.now or realTime()
+end
+
+-- Instante de hoy a la hora "HH:MM", para escribir los escenarios en horas legibles.
+function H.today(hhmm)
+    local d = os.date("*t")
+    local h, m = hhmm:match("^(%d+):(%d+)$")
+    d.hour, d.min, d.sec = tonumber(h), tonumber(m), 0
+    return realTime(d)
+end
+
+-- Duerme el Mac de `from` a `to` ("HH:MM") y lo despierta.
+function H.sleepBetween(from, to)
+    H.now = H.today(from)
+    H.powerEvent(hs.caffeinate.watcher.systemWillSleep)
+    H.now = H.today(to)
+    H.powerEvent(hs.caffeinate.watcher.systemDidWake)
 end
 
 function hs.timer.absoluteTime() return H.clock end

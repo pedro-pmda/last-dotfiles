@@ -502,54 +502,111 @@ local function noteComms(time, state)
     log("comunicación " .. time .. ": " .. state)
 end
 
+-- Minutos del día → instante de hoy (o del día de `ref`). Para saber si una franja cayó
+-- mientras el Mac dormía hay que compararla con horas de pared, no con el reloj de timers.
+local function slotEpoch(time, ref)
+    local d = os.date("*t", ref)
+    local h, m = time:match("^(%d+):(%d+)$")
+    d.hour, d.min, d.sec = tonumber(h), tonumber(m), 0
+    return os.time(d)
+end
+
+-- El reposo retrasa los temporizadores. macOS los cuenta con un reloj que se PARA mientras
+-- el Mac duerme, así que un `doAt` creado ayer salta tarde tantas horas como haya dormido
+-- el Mac desde entonces — y `nextTrigger()` miente, porque enseña la hora de pared. Medido:
+-- tras una noche en reposo las cuatro franjas seguían `running` con la hora pasada y sin
+-- disparar, mientras que un `doAt` recién creado disparaba puntual.
+-- El arreglo va por eventos, no sondeando: al despertar se tiran los cuatro y se crean de
+-- nuevo, que es cuando `doAt` vuelve a calcular la hora con el reloj de pared. Y lo que cayó
+-- durante el reposo se lanza si hace poco (wakeGraceMinutes) o se avisa de que se perdió.
 local function scheduleCommsWindows()
     local comms = config.modes and config.modes.work and config.modes.work.comms
     if not comms then return end
+    local windows = comms.windows or {}
 
-    for _, window in ipairs(comms.windows or {}) do
-        commsState[window.time] = "programada"
-        daily(window.time, "1d", function()
-            if currentMode ~= "work" then
-                noteComms(window.time, "saltada: modo " .. tostring(currentMode))
-                -- Sin sonido: en Kaizen no se interrumpe, solo se deja dicho que no salió.
-                commsNotice(comms, "⏭️ Comunicación de las " .. window.time .. " saltada",
-                            "Estás en modo " .. tostring(currentMode), { sound = false })
-                return
-            end
-            if comms.weekdaysOnly ~= false and not isWeekday() then
-                noteComms(window.time, "saltada: no es día laborable")
-                return
-            end
+    local function fireSlot(window)
+        if currentMode ~= "work" then
+            noteComms(window.time, "saltada: modo " .. tostring(currentMode))
+            -- Sin sonido: en Kaizen no se interrumpe, solo se deja dicho que no salió.
+            commsNotice(comms, "⏭️ Comunicación de las " .. window.time .. " saltada",
+                        "Estás en modo " .. tostring(currentMode), { sound = false })
+            return
+        end
+        if comms.weekdaysOnly ~= false and not isWeekday() then
+            noteComms(window.time, "saltada: no es día laborable")
+            return
+        end
 
-            local maxPostpones = comms.maxPostpones or 12
-            local attempts = 0
-            local function attempt()
-                if cameraInUse() then
-                    attempts = attempts + 1
-                    if attempts <= maxPostpones then
-                        noteComms(window.time, string.format(
-                            "pospuesta, cámara en uso (intento %d/%d)", attempts, maxPostpones))
-                        -- Solo la primera vez y sin sonido: estás en una llamada, y repetirlo
-                        -- cada 2 min sería justo la interrupción que se quiere evitar.
-                        if attempts == 1 then
-                            commsNotice(comms, "⏳ Comunicación de las " .. window.time .. " pospuesta",
-                                        "Cámara en uso · sale al colgar", { sound = false })
-                        end
-                        later((comms.postponeMinutes or 2) * 60, attempt)
-                    else
-                        -- Visible a propósito: si la ventana se cae, hay que enterarse.
-                        commsNotice(comms, "📭 Comunicación de las " .. window.time ..
-                                    " descartada (cámara en uso)", nil, { sound = false })
-                        noteComms(window.time, "descartada: cámara en uso")
+        local maxPostpones = comms.maxPostpones or 12
+        local attempts = 0
+        local function attempt()
+            if cameraInUse() then
+                attempts = attempts + 1
+                if attempts <= maxPostpones then
+                    noteComms(window.time, string.format(
+                        "pospuesta, cámara en uso (intento %d/%d)", attempts, maxPostpones))
+                    -- Solo la primera vez y sin sonido: estás en una llamada, y repetirlo
+                    -- cada 2 min sería justo la interrupción que se quiere evitar.
+                    if attempts == 1 then
+                        commsNotice(comms, "⏳ Comunicación de las " .. window.time .. " pospuesta",
+                                    "Cámara en uso · sale al colgar", { sound = false })
                     end
-                    return
+                    later((comms.postponeMinutes or 2) * 60, attempt)
+                else
+                    -- Visible a propósito: si la ventana se cae, hay que enterarse.
+                    commsNotice(comms, "📭 Comunicación de las " .. window.time ..
+                                " descartada (cámara en uso)", nil, { sound = false })
+                    noteComms(window.time, "descartada: cámara en uso")
                 end
-                noteComms(window.time, "lanzada a las " .. os.date("%H:%M:%S"))
-                runCommsWindow(window, comms)
+                return
             end
-            attempt()
-        end)
+            noteComms(window.time, "lanzada a las " .. os.date("%H:%M:%S"))
+            runCommsWindow(window, comms)
+        end
+        attempt()
     end
+
+    -- `daily` solo lo usan las franjas, así que rearmar es vaciar su lista entera.
+    local function arm()
+        for _, timer in ipairs(_G.wmTimers.daily) do timer:stop() end
+        _G.wmTimers.daily = {}
+        for _, window in ipairs(windows) do
+            daily(window.time, "1d", function() fireSlot(window) end)
+        end
+    end
+
+    for _, window in ipairs(windows) do commsState[window.time] = "programada" end
+    arm()
+
+    local grace = (comms.wakeGraceMinutes or 15) * 60
+    local sleptAt = nil
+    local W = hs.caffeinate.watcher
+    -- Global por lo mismo que el tap de teclado: un watcher local se lo lleva el recolector
+    -- y deja de avisar sin decir nada.
+    _G.commsWakeWatcher = W.new(function(event)
+        if event == W.systemWillSleep then
+            sleptAt = os.time()
+        elseif event == W.systemDidWake then
+            local wokeAt = os.time()
+            log("despierta: se rearman las franjas de comunicación")
+            arm()
+            if not sleptAt then return end
+            for _, window in ipairs(windows) do
+                local at = slotEpoch(window.time, wokeAt)
+                if at > sleptAt and at <= wokeAt then
+                    if wokeAt - at <= grace then
+                        fireSlot(window)
+                    else
+                        noteComms(window.time, "perdida: el Mac estaba en reposo")
+                        commsNotice(comms, "💤 Comunicación de las " .. window.time .. " perdida",
+                                    "El Mac estaba en reposo a esa hora", { sound = false })
+                    end
+                end
+            end
+            sleptAt = nil
+        end
+    end)
+    _G.commsWakeWatcher:start()
 end
 
 --------------------------------------------------------------------------------
